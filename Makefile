@@ -1,16 +1,28 @@
 ARCH = $(shell uname -m)
 
-all: vision2-$(ARCH)
+CFLAGS=-g -Wall `pkg-config --cflags opencv libv4l2`
+LDFLAGS=`pkg-config --libs opencv libv4l2`
+OBJS=\
+    capture-$(ARCH).o \
+    image-$(ARCH).o \
+    vision-$(ARCH).o
+
+all: vision-$(ARCH)
 
 capture-$(ARCH).o: capture.c capture.h Makefile
-	gcc -c -g -Wall  -o $@ `pkg-config --cflags opencv libv4l2` capture.c
+	gcc -c $(CFLAGS) -o $@ $<
 
-vision2-$(ARCH): vision2.cpp capture-$(ARCH).o capture.h Makefile
-	g++ -g -Wall   -o $@ `pkg-config --cflags --libs opencv libv4l2` vision2.cpp capture-$(ARCH).o
+vision-$(ARCH).o: vision.c image.h capture.h Makefile
+	gcc -c $(CFLAGS) -o $@ $<
+
+image-$(ARCH).o: image.cpp image.h Makefile
+	g++ -c $(CFLAGS) -o $@ $<
+
+vision-$(ARCH): main.cpp $(OBJS) image.h capture.h Makefile
+	g++    $(CFLAGS) -o $@ $(LDFLAGS) $< $(OBJS)
 
 clean:
-	rm -f capture-$(ARCH).o
+	rm -f $(OBJS)
 	rm -f vision2-$(ARCH)
-	rm -f /home/pi/vision2-$(ARCH)
 	
 rebuild: clean all

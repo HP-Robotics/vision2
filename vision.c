@@ -1,10 +1,6 @@
-#include <cstring>
 #include <stdio.h>
-#include <string>
-#include <exception>
-#include <sstream>
+#include <string.h>
 #include <unistd.h>
-#include <iostream>
 #include <getopt.h>
 #include <sys/time.h>
 
@@ -12,13 +8,15 @@
 #include "opencv2/imgproc/imgproc.hpp"
 
 #include "capture.h"
+#include "image.h"
 
 
 filter_t g_color_filter = { 105, 125, 65, 125, 10, 255 };
 
-int g_display = 0;
+int g_display = 1;
 int g_colors = 1;
 int g_filter = 0;
+int g_contours = 1;
 
 int g_desired_fps = 1;
 int g_desired_width = 320;
@@ -26,10 +24,11 @@ int g_desired_height = 240;
 
 char *g_blur_type = NULL;
 
+long g_count = 0;
+
 struct timeval g_total_retrieve_time;
 struct timeval g_total_blur_time;
-
-using namespace cv;
+struct timeval g_total_contour_time;
 
 
 static IplImage *vision_retrieve(capture_t *c)
@@ -116,11 +115,20 @@ static int parse_arguments(int argc, char *argv[])
     }
 }
 
-static double print_avg_time(struct timeval *t, int count)
+static double print_avg_time(struct timeval *t, long count)
 {
     double ret = (t->tv_sec + (t->tv_usec / 1000000.0)) / count;
     return ret;
 }
+
+static void print_stats (long count, struct timeval *r, struct timeval *b, struct timeval *c)
+{
+    printf("Took %ld pictures. [retrieve %g|blur %g|contour %g]\n", count,
+        print_avg_time(r, count),
+        print_avg_time(b, count),
+        print_avg_time(c, count));
+}
+
 
 static void key_usage(int c)
 {
@@ -129,6 +137,7 @@ static void key_usage(int c)
     printf("d - Toggle display on/off\n");
     printf("c - Toggle color mode on/off\n");
     printf("f - Toggle filter on/off\n");
+    printf(". - Print current stats\n");
     printf("filter adjustment:\n");
     printf("  u/j +/- min_u    U/J +/- max_u\n");
     printf("  i/k +/- min_v    I/K +/- max_v\n");
@@ -192,7 +201,8 @@ static inline void process_key(int c, filter_t *filter)
         g_colors = g_colors ==3 ? 1 : 3;
         printf("color %s\n", g_colors == 3 ? "on" : "off");
     }
-
+    else if (c == '.')
+        print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time);
 
     else
         key_usage(c);
@@ -207,28 +217,9 @@ static inline void process_key(int c, filter_t *filter)
     //    printf("[u min %d|max %d|v min %d|max %d|y min %d|max %d]\n", umin, umax, vmin, vmax, ymin, ymax);
 }
 
-static void process_blur(IplImage *img, char *type, struct timeval *t)
-{
-    struct timeval start, end, diff;
-    gettimeofday(&start, NULL);
-    IplImage *copy = cvCloneImage(img);
-    Mat a = cvarrToMat(img);
-    Mat b = cvarrToMat(copy);
-    GaussianBlur(a, b, Size(3, 3), 1.0);
-
-    gettimeofday(&end, NULL);
-    timersub(&end, &start, &diff);
-    timeradd(t, &diff, t);
-    if (g_display)
-        cvShowImage("Blur", copy);
-    cvReleaseImage(&copy);
-    /* FIXME - release a and b ? */
-}
-
-int main(int argc, char *argv[])
+int vision_main(int argc, char *argv[])
 {
     capture_t cam;
-    int count = 0;
 
     struct timeval start, end, diff;
 
@@ -242,9 +233,19 @@ int main(int argc, char *argv[])
     printf("Capture started; %dx%d at %d fps. %sdisplaying.  Color depth %d.\n", cam.width, cam.height, cam.fps,
             g_display ? "" : "Not ", g_colors);
 
-    namedWindow("Camera", CV_WINDOW_AUTOSIZE);
+    cvNamedWindow("Camera", CV_WINDOW_AUTOSIZE);
+    cvMoveWindow("Camera", 0, 0);
+
     if (g_blur_type)
-        namedWindow("Blur", CV_WINDOW_AUTOSIZE);
+    {
+        cvNamedWindow("Blur", CV_WINDOW_AUTOSIZE);
+        cvMoveWindow("Blur", cam.width, 0);
+    }
+    if (g_contours)
+    {
+        cvNamedWindow("Contours", CV_WINDOW_AUTOSIZE);
+        cvMoveWindow("Contours", 0, cam.height);
+    }
 
     while (1)
     {
@@ -259,27 +260,31 @@ int main(int argc, char *argv[])
         {
             IplImage *img;
             img = vision_retrieve(&cam);
+
             gettimeofday(&end, NULL);
             timersub(&end, &start, &diff);
             timeradd(&g_total_retrieve_time, &diff, &g_total_retrieve_time);
+
             if (g_blur_type)
-                process_blur(img, g_blur_type, &g_total_blur_time);
+                process_blur(img, g_blur_type, &g_total_blur_time, g_display);
+
+            if (g_contours)
+                find_contours(img, &g_total_contour_time, g_display);
 
             if (g_display)
                 cvShowImage("Camera", img);
             vision_release(&cam, &img);
-            count++;
+
+            g_count++;
         }
 
     }
 
     capture_stop(&cam);
 
-    destroyAllWindows();
+    cvDestroyAllWindows();
 
-    printf("Took %d pictures. [retrieve %g|blur %g]\n", count,
-        print_avg_time(&g_total_retrieve_time, count),
-        print_avg_time(&g_total_blur_time, count));
+    print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time);
 
     return 0;
 }
