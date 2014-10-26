@@ -23,6 +23,6 @@ vision-$(ARCH): main.cpp $(OBJS) image.h capture.h Makefile
 
 clean:
 	rm -f $(OBJS)
-	rm -f vision2-$(ARCH)
+	rm -f vision-$(ARCH)
 	
 rebuild: clean all

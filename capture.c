@@ -399,16 +399,18 @@ int capture_grab(capture_t *c)
     return 1;
 }
 
-void capture_clear(capture_t *c1, capture_t *c2, int threshold)
+int capture_clear(capture_t *c1, capture_t *c2, int threshold)
 {
     int count = 0;
+    int discard = 0;
     while (count < threshold)
     {
         if ((c1 && capture_grab(c1) != 0) || (c2 && capture_grab(c2) != 0))
             count = 0;
         else
-            count++;
+            discard++, count++;
     }
+    return discard;
 }
 
 void * capture_retrieve(capture_t *c, int bytes, filter_t *filter)

@@ -34,7 +34,7 @@ void capture_stop(capture_t *c);
 
 int capture_grab(capture_t *c);
 void * capture_retrieve(capture_t *c, int bytes, filter_t *filter);
-void capture_clear(capture_t *c1, capture_t *c2, int threshold);
+int capture_clear(capture_t *c1, capture_t *c2, int threshold);
 
 
 #if defined(__cplusplus)

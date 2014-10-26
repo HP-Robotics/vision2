@@ -15,20 +15,24 @@ filter_t g_color_filter = { 105, 125, 65, 125, 10, 255 };
 
 int g_display = 1;
 int g_colors = 1;
-int g_filter = 0;
+int g_filter = 1;
 int g_contours = 1;
+int g_canny = 1;
+int g_hough = 0;
+double g_canny_threshold = 25.0;
 
 int g_desired_fps = 1;
-int g_desired_width = 320;
-int g_desired_height = 240;
+int g_desired_width = 640;
+int g_desired_height = 480;
 
-char *g_blur_type = NULL;
+char *g_blur_type = "gaussian";
 
 long g_count = 0;
 
 struct timeval g_total_retrieve_time;
 struct timeval g_total_blur_time;
 struct timeval g_total_contour_time;
+struct timeval g_total_canny_time;
 
 
 static IplImage *vision_retrieve(capture_t *c)
@@ -121,12 +125,13 @@ static double print_avg_time(struct timeval *t, long count)
     return ret;
 }
 
-static void print_stats (long count, struct timeval *r, struct timeval *b, struct timeval *c)
+static void print_stats (long count, struct timeval *r, struct timeval *b, struct timeval *c, struct timeval *can)
 {
-    printf("Took %ld pictures. [retrieve %g|blur %g|contour %g]\n", count,
+    printf("Took %ld pictures. [retrieve %g|blur %g|contour %g|canny %g]\n", count,
         print_avg_time(r, count),
         print_avg_time(b, count),
-        print_avg_time(c, count));
+        print_avg_time(c, count),
+        print_avg_time(can, count));
 }
 
 
@@ -137,11 +142,15 @@ static void key_usage(int c)
     printf("d - Toggle display on/off\n");
     printf("c - Toggle color mode on/off\n");
     printf("f - Toggle filter on/off\n");
+    printf("a - Toggle Canny on/off\n");
+    printf("h - Toggle Hough on/off\n");
+    printf("n - Toggle contours on/off\n");
     printf(". - Print current stats\n");
     printf("filter adjustment:\n");
     printf("  u/j +/- min_u    U/J +/- max_u\n");
     printf("  i/k +/- min_v    I/K +/- max_v\n");
     printf("  o/l +/- min_y    O/L +/- max_y\n");
+    printf("  </> +/- canny    [/] +/- hough\n");
 }
 
 static inline void process_key(int c, filter_t *filter)
@@ -201,8 +210,31 @@ static inline void process_key(int c, filter_t *filter)
         g_colors = g_colors ==3 ? 1 : 3;
         printf("color %s\n", g_colors == 3 ? "on" : "off");
     }
+
+    else if (c == 'a')
+    {
+        g_canny = !g_canny;
+        printf("canny %s\n", g_canny ? "on" : "off");
+    }
+
+    else if (c == 'h')
+    {
+        g_hough = !g_hough;
+        printf("hough %s\n", g_hough ? "on" : "off");
+    }
+
+    else if (c == 'z')
+    {
+        g_contours = !g_contours;
+        printf("contours %s\n", g_contours ? "on" : "off");
+    }
     else if (c == '.')
-        print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time);
+        print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time);
+
+    else if (c == '<')
+        g_canny_threshold -= 1.0;
+    else if (c == '>')
+        g_canny_threshold += 1.0;
 
     else
         key_usage(c);
@@ -212,6 +244,8 @@ static inline void process_key(int c, filter_t *filter)
                filter->min_u, filter->max_u,
                filter->min_v, filter->max_v,
                filter->min_y, filter->max_y);
+    if (strchr("<>", c))
+        printf("Canny: %g\n", g_canny_threshold);
 
     //if (isalpha(c))
     //    printf("[u min %d|max %d|v min %d|max %d|y min %d|max %d]\n", umin, umax, vmin, vmax, ymin, ymax);
@@ -222,6 +256,9 @@ int vision_main(int argc, char *argv[])
     capture_t cam;
 
     struct timeval start, end, diff;
+    struct timeval main_start;
+
+    int discard = 0;
 
     if (parse_arguments(argc, argv))
         return -1;
@@ -246,6 +283,13 @@ int vision_main(int argc, char *argv[])
         cvNamedWindow("Contours", CV_WINDOW_AUTOSIZE);
         cvMoveWindow("Contours", 0, cam.height);
     }
+    if (g_canny)
+    {
+        cvNamedWindow("Canny", CV_WINDOW_AUTOSIZE);
+        cvMoveWindow("Canny", cam.width, cam.height);
+    }
+
+    gettimeofday(&main_start, NULL);
 
     while (1)
     {
@@ -265,26 +309,41 @@ int vision_main(int argc, char *argv[])
             timersub(&end, &start, &diff);
             timeradd(&g_total_retrieve_time, &diff, &g_total_retrieve_time);
 
-            if (g_blur_type)
-                process_blur(img, g_blur_type, &g_total_blur_time, g_display);
-
-            if (g_contours)
-                find_contours(img, &g_total_contour_time, g_display);
-
             if (g_display)
                 cvShowImage("Camera", img);
+
+            if (g_blur_type)
+            {
+                process_blur(img, g_blur_type, &g_total_blur_time);
+                if (g_display)
+                    cvShowImage("Blur", img);
+            }
+
+            if (g_canny)
+                perform_canny(img, &g_total_canny_time, g_canny_threshold, g_display);
+
+            if (g_contours)
+                find_contours(img, &g_total_contour_time, g_display, 0);
+
             vision_release(&cam, &img);
 
             g_count++;
         }
 
+        discard += capture_clear(&cam, NULL, 3);
+
     }
+
+    gettimeofday(&end, NULL);
+    timersub(&end, &main_start, &diff);
+    printf("Overall fps %g in %ld.%ld, discarded %d\n", g_count / (diff.tv_sec + (diff.tv_usec / 1000000.0)),
+        diff.tv_sec, diff.tv_usec, discard);
 
     capture_stop(&cam);
 
     cvDestroyAllWindows();
 
-    print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time);
+    print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time);
 
     return 0;
 }
