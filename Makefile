@@ -7,10 +7,6 @@ capture-$(ARCH).o: capture.c capture.h Makefile
 
 vision2-$(ARCH): vision2.cpp capture-$(ARCH).o capture.h Makefile
 	g++ -g -Wall   -o $@ `pkg-config --cflags --libs opencv libv4l2` vision2.cpp capture-$(ARCH).o
-	cp vision2-$(ARCH) /home/pi/
-
-run: 
-	/home/pi/vision2-$(ARCH)
 
 clean:
 	rm -f capture-$(ARCH).o

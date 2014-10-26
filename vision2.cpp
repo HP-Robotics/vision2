@@ -13,15 +13,12 @@
 
 #include "capture.h"
 
-int umin = 105;
-int umax = 125;
-int vmin = 65;
-int vmax = 125;
-int ymin = 10;
-int ymax = 255;
+
+filter_t g_color_filter = { 105, 125, 65, 125, 10, 255 };
 
 int g_display = 0;
 int g_colors = 1;
+int g_filter = 0;
 
 int g_desired_fps = 1;
 int g_desired_width = 320;
@@ -39,7 +36,7 @@ static IplImage *vision_retrieve(capture_t *c)
 {
     void *i;
     IplImage *img = NULL;
-    i = capture_retrieve(c, g_colors, umin, umax, vmin, vmax, ymin, ymax);
+    i = capture_retrieve(c, g_colors, g_filter ? &g_color_filter : NULL);
     if (i)
     {
         img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
@@ -125,6 +122,109 @@ static double print_avg_time(struct timeval *t, int count)
     return ret;
 }
 
+static void key_usage(int c)
+{
+    printf("bad key %d[0x%x](%c)\n", c, c,c);
+    printf("basic controls:\n");
+    printf("d - Toggle display on/off\n");
+    printf("c - Toggle color mode on/off\n");
+    printf("f - Toggle filter on/off\n");
+    printf("filter adjustment:\n");
+    printf("  u/j +/- min_u    U/J +/- max_u\n");
+    printf("  i/k +/- min_v    I/K +/- max_v\n");
+    printf("  o/l +/- min_y    O/L +/- max_y\n");
+}
+
+static inline void process_key(int c, filter_t *filter)
+{
+    if (c == -1)
+        return;
+
+    /* I haven't quite figured out opencv key codes yet.
+       They seem to both shift in (e.g. | 0x10000 for shift
+       and | 0x40000 for ctrl) and return a key for the shift
+       key (e.g. shift key is 0xffe1).  Just strip 'em for now. */
+    c &= 0xFF;
+    if (c == 0xe1 || c == 0xe2)
+        return;
+
+    if (c == 'u')
+        filter->min_u += 5;
+    else if (c == 'j')
+        filter->min_u -= 5;
+    else if (c == 'U')
+        filter->max_u += 5;
+    else if (c == 'J')
+        filter->max_u -= 5;
+
+    else if (c == 'i')
+        filter->min_v += 5;
+    else if (c == 'k')
+        filter->min_v -= 5;
+    else if (c == 'I')
+        filter->max_v += 5;
+    else if (c == 'K')
+        filter->max_v -= 5;
+
+    else if (c == 'o')
+        filter->min_y += 5;
+    else if (c == 'l')
+        filter->min_y -= 5;
+    else if (c == 'O')
+        filter->max_y += 5;
+    else if (c == 'L')
+        filter->max_y -= 5;
+
+    else if (c == 'd')
+    {
+        g_display = !g_display;
+        printf("display %s\n", g_display ? "on" : "off");
+    }
+
+    else if (c == 'f')
+    {
+        g_filter = !g_filter;
+        printf("filter %s\n", g_filter ? "on" : "off");
+    }
+
+    else if (c == 'c')
+    {
+        g_colors = g_colors ==3 ? 1 : 3;
+        printf("color %s\n", g_colors == 3 ? "on" : "off");
+    }
+
+
+    else
+        key_usage(c);
+
+    if (strchr("uUjJiIkKoOlL", c))
+        printf("Filter: [%03d<--U-->%03d|%03d<--V-->%03d|%03d<--Y-->%03d]\n",
+               filter->min_u, filter->max_u,
+               filter->min_v, filter->max_v,
+               filter->min_y, filter->max_y);
+
+    //if (isalpha(c))
+    //    printf("[u min %d|max %d|v min %d|max %d|y min %d|max %d]\n", umin, umax, vmin, vmax, ymin, ymax);
+}
+
+static void process_blur(IplImage *img, char *type, struct timeval *t)
+{
+    struct timeval start, end, diff;
+    gettimeofday(&start, NULL);
+    IplImage *copy = cvCloneImage(img);
+    Mat a = cvarrToMat(img);
+    Mat b = cvarrToMat(copy);
+    GaussianBlur(a, b, Size(3, 3), 1.0);
+
+    gettimeofday(&end, NULL);
+    timersub(&end, &start, &diff);
+    timeradd(t, &diff, t);
+    if (g_display)
+        cvShowImage("Blur", copy);
+    cvReleaseImage(&copy);
+    /* FIXME - release a and b ? */
+}
+
 int main(int argc, char *argv[])
 {
     capture_t cam;
@@ -148,45 +248,11 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        char c = (char) cvWaitKey(1);
+        int c = cvWaitKey(1);
         if (c == 'q' || c == 27)
             break;
 
-        if (c == 'u')
-            umin += 5;
-        if (c == 'j')
-            umin -= 5;
-        if (c == 'U')
-            umax += 5;
-        if (c == 'J')
-            umax -= 5;
-
-        if (c == 'i')
-            vmin += 5;
-        if (c == 'k')
-            vmin -= 5;
-        if (c == 'I')
-            vmax += 5;
-        if (c == 'K')
-            vmax -= 5;
-
-        if (c == 'o')
-            ymin += 5;
-        if (c == 'l')
-            ymin -= 5;
-        if (c == 'O')
-            ymax += 5;
-        if (c == 'L')
-            ymax -= 5;
-
-        if (c == 'd')
-            g_display = !g_display;
-
-        if (c == 'c')
-            g_colors = g_colors ==3 ? 1 : 3;
-
-        if (isalpha(c))
-            printf("[u min %d|max %d|v min %d|max %d|y min %d|max %d]\n", umin, umax, vmin, vmax, ymin, ymax);
+        process_key(c, &g_color_filter);
 
         gettimeofday(&start, NULL);
         if (capture_grab(&cam) > 0)
@@ -197,20 +263,8 @@ int main(int argc, char *argv[])
             timersub(&end, &start, &diff);
             timeradd(&g_total_retrieve_time, &diff, &g_total_retrieve_time);
             if (g_blur_type)
-            {
-                gettimeofday(&start, NULL);
-                IplImage *copy = cvCloneImage(img);
-                Mat a = cvarrToMat(img);
-                Mat b = cvarrToMat(copy);
-                GaussianBlur(a, b, Size(3, 3), 1.0);
+                process_blur(img, g_blur_type, &g_total_blur_time);
 
-                gettimeofday(&end, NULL);
-                timersub(&end, &start, &diff);
-                timeradd(&g_total_blur_time, &diff, &g_total_blur_time);
-                if (g_display)
-                    cvShowImage("Blur", copy);
-                cvReleaseImage(&copy);
-            }
             if (g_display)
                 cvShowImage("Camera", img);
             vision_release(&cam, &img);

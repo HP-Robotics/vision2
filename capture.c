@@ -21,72 +21,89 @@
 #define SAT(c) \
         if (c & (~255)) { if (c < 0) c = 0; else c = 255; }
 
-static void yuyv_to_rgb24 (int width, int height, unsigned char *src, unsigned char *dst)
+static void yuyv_to_rgb24 (unsigned char *src, unsigned char *dst, int width, int height, filter_t *filter)
 {
-   unsigned char *s;
-   unsigned char *d;
-   int l, c;
-   int r, g, b, cr, cg, cb, y1, y2;
+    unsigned char *s;
+    unsigned char *d;
+    int l, c;
+    int r, g, b, cr, cg, cb, y1, y2;
 
-   l = height;
-   s = src;
-   d = dst;
-   while (l--) {
-      c = width >> 1;
-      while (c--) {
-         y1 = *s++;
-         cb = ((*s - 128) * 454) >> 8;
-         cg = (*s++ - 128) * 88;
-         y2 = *s++;
-         cr = ((*s - 128) * 359) >> 8;
-         cg = (cg + (*s++ - 128) * 183) >> 8;
+    l = height;
+    s = src;
+    d = dst;
 
-         r = y1 + cr;
-         b = y1 + cb;
-         g = y1 - cg;
-         SAT(r);
-         SAT(g);
-         SAT(b);
+    while (l--)
+    {
+        c = width >> 1;
+        while (c--)
+        {
+            if (filter &&
+                (s[1] < filter->min_u || s[1] > filter->max_u ||
+                 s[3] < filter->min_v || s[3] > filter->max_v))
+            {
+                d += 6;
+                s += 4;
+                continue;
+            }
 
-     *d++ = b;
-     *d++ = g;
-     *d++ = r;
+            y1 = *s++;
+            cb = ((*s - 128) * 454) >> 8;
+            cg = (*s++ - 128) * 88;
+            y2 = *s++;
+            cr = ((*s - 128) * 359) >> 8;
+            cg = (cg + (*s++ - 128) * 183) >> 8;
 
-         r = y2 + cr;
-         b = y2 + cb;
-         g = y2 - cg;
-         SAT(r);
-         SAT(g);
-         SAT(b);
+            if (filter && (y1 < filter->min_y || y1 > filter->max_y))
+                d += 3;
+            else
+            {
+                r = y1 + cr;
+                b = y1 + cb;
+                g = y1 - cg;
+                SAT(r);
+                SAT(g);
+                SAT(b);
 
-     *d++ = b;
-     *d++ = g;
-     *d++ = r;
-      }
-   }
+                *d++ = b;
+                *d++ = g;
+                *d++ = r;
+            }
+
+            if (filter && (y2 < filter->min_y || y2 > filter->max_y))
+                d += 3;
+            else
+            {
+                r = y2 + cr;
+                b = y2 + cb;
+                g = y2 - cg;
+                SAT(r);
+                SAT(g);
+                SAT(b);
+
+                *d++ = b;
+                *d++ = g;
+                *d++ = r;
+            }
+        }
+    }
 }
 
-static void yuyv_to_8(void *in, void *out, int width, int height, int min_u, int max_u, int min_v, int max_v, int min_y, int max_y)
+static void yuyv_to_8(void *in, void *out, int width, int height, filter_t *filter)
 {
     unsigned char *p = in;
     unsigned char *q = out;
-    unsigned long u = 0;
-    unsigned long v = 0;
-    unsigned long hits = 0;
     int w, h;
     for (h = 0; h < height; h++)
         for (w = 0; w < width; w += 2, p += 4, q += 2)
         {
-            if (p[1] >= min_u && p[1] <= max_u && p[3] >= min_v && p[3] <= max_v)
-            {
-                u += p[1];
-                v += p[3];
-                hits++;
-                if (p[0] >= min_y && p[0] <= max_y)
-                    *q = p[0];
-                if (p[2] >= min_y && p[2] <= max_y)
-                    *(q + 1) = p[2];
-            }
+            if (filter &&
+                (p[1] < filter->min_u || p[1] > filter->max_u ||
+                 p[3] < filter->min_v || p[3] > filter->max_v))
+                continue;
+            if (!filter || (p[0] >= filter->min_y && p[0] <= filter->max_y))
+                *q = p[0];
+            if (!filter || (p[2] >= filter->min_y && p[2] <= filter->max_y))
+                *(q + 1) = p[2];
         }
 }
 
@@ -394,16 +411,16 @@ void capture_clear(capture_t *c1, capture_t *c2, int threshold)
     }
 }
 
-void * capture_retrieve(capture_t *c, int bytes, int min_u, int max_u, int min_v, int max_v, int min_y, int max_y)
+void * capture_retrieve(capture_t *c, int bytes, filter_t *filter)
 {
     void *data = NULL;
 
     data = calloc(1, c->width * c->height * bytes);
 
     if (bytes == 3)
-        yuyv_to_rgb24 (c->width, c->height, c->last_frame_ptr, data);
+        yuyv_to_rgb24 (c->last_frame_ptr, data, c->width, c->height, filter);
     else if (bytes == 1)
-        yuyv_to_8(c->last_frame_ptr, data, c->width, c->height, min_u, max_u, min_v, max_v, min_y, max_y);
+        yuyv_to_8(c->last_frame_ptr, data, c->width, c->height, filter);
     else
     {
         free(data);

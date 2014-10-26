@@ -7,6 +7,16 @@ struct mmap_buffer
     size_t  length;
 };
 
+typedef struct color_filter
+{
+    int min_u;
+    int max_u;
+    int min_v;
+    int max_v;
+    int min_y;
+    int max_y;
+} filter_t;
+
 typedef struct capture_control
 {
     int fd;
@@ -23,7 +33,7 @@ int capture_start(capture_t *c, const char *name, int width, int height, int fps
 void capture_stop(capture_t *c);
 
 int capture_grab(capture_t *c);
-void * capture_retrieve(capture_t *c, int bytes, int min_u, int max_u, int min_v, int max_v, int min_y, int max_y);
+void * capture_retrieve(capture_t *c, int bytes, filter_t *filter);
 void capture_clear(capture_t *c1, capture_t *c2, int threshold);
 
 
