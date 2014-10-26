@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <getopt.h>
+#include <sys/time.h>
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -25,6 +26,11 @@ int g_colors = 1;
 int g_desired_fps = 1;
 int g_desired_width = 320;
 int g_desired_height = 240;
+
+char *g_blur_type = NULL;
+
+struct timeval g_total_retrieve_time;
+struct timeval g_total_blur_time;
 
 using namespace cv;
 
@@ -69,6 +75,7 @@ static int parse_arguments(int argc, char *argv[])
         {"fps",     required_argument, 0,  'f' },
         {"width",   required_argument, 0,  'w' },
         {"height",  required_argument, 0,  'h' },
+        {"blur",    required_argument, 0,  'b' },
         {0,         0,                 0,  0 }
     };
 
@@ -98,6 +105,10 @@ static int parse_arguments(int argc, char *argv[])
                 g_desired_height = atoi(optarg);
                 break;
 
+            case 'b':
+                g_blur_type = strdup(optarg);
+                break;
+
             case -1:
                 return 0;
 
@@ -108,10 +119,18 @@ static int parse_arguments(int argc, char *argv[])
     }
 }
 
+static double print_avg_time(struct timeval *t, int count)
+{
+    double ret = (t->tv_sec + (t->tv_usec / 1000000.0)) / count;
+    return ret;
+}
+
 int main(int argc, char *argv[])
 {
     capture_t cam;
     int count = 0;
+
+    struct timeval start, end, diff;
 
     if (parse_arguments(argc, argv))
         return -1;
@@ -122,8 +141,10 @@ int main(int argc, char *argv[])
 
     printf("Capture started; %dx%d at %d fps. %sdisplaying.  Color depth %d.\n", cam.width, cam.height, cam.fps,
             g_display ? "" : "Not ", g_colors);
-    // create a window to display detected faces
+
     namedWindow("Camera", CV_WINDOW_AUTOSIZE);
+    if (g_blur_type)
+        namedWindow("Blur", CV_WINDOW_AUTOSIZE);
 
     while (1)
     {
@@ -167,10 +188,29 @@ int main(int argc, char *argv[])
         if (isalpha(c))
             printf("[u min %d|max %d|v min %d|max %d|y min %d|max %d]\n", umin, umax, vmin, vmax, ymin, ymax);
 
+        gettimeofday(&start, NULL);
         if (capture_grab(&cam) > 0)
         {
             IplImage *img;
             img = vision_retrieve(&cam);
+            gettimeofday(&end, NULL);
+            timersub(&end, &start, &diff);
+            timeradd(&g_total_retrieve_time, &diff, &g_total_retrieve_time);
+            if (g_blur_type)
+            {
+                gettimeofday(&start, NULL);
+                IplImage *copy = cvCloneImage(img);
+                Mat a = cvarrToMat(img);
+                Mat b = cvarrToMat(copy);
+                GaussianBlur(a, b, Size(3, 3), 1.0);
+
+                gettimeofday(&end, NULL);
+                timersub(&end, &start, &diff);
+                timeradd(&g_total_blur_time, &diff, &g_total_blur_time);
+                if (g_display)
+                    cvShowImage("Blur", copy);
+                cvReleaseImage(&copy);
+            }
             if (g_display)
                 cvShowImage("Camera", img);
             vision_release(&cam, &img);
@@ -183,7 +223,9 @@ int main(int argc, char *argv[])
 
     destroyAllWindows();
 
-    printf("Took %d pictures\n", count);
+    printf("Took %d pictures. [retrieve %g|blur %g]\n", count,
+        print_avg_time(&g_total_retrieve_time, count),
+        print_avg_time(&g_total_blur_time, count));
 
     return 0;
 }
