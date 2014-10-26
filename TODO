@@ -1,0 +1,6 @@
+1.  Measure performance
+    a) Just capturing, at each color depth
+    b) Of each step (e.g. filter, find paths, etc)
+
+2.  Test different blurs
+    a) Visual, and performance
