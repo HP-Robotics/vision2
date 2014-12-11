@@ -13,7 +13,7 @@ capture-$(ARCH).o: capture.c capture.h Makefile
 	gcc -c $(CFLAGS) -o $@ $<
 
 vision-$(ARCH).o: vision.c image.h capture.h Makefile
-	gcc -c $(CFLAGS) -o $@ $<
+	gcc -c $(CFLAGS) -Wno-unused-function -o $@ $<
 
 image-$(ARCH).o: image.cpp image.h Makefile
 	g++ -c $(CFLAGS) -o $@ $<

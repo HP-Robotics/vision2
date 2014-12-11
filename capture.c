@@ -1,3 +1,20 @@
+/*-------------------------------------------------------------------------
+* capture.c - Sub routines to grab data from a v4l camera
+*             and optionally filter + convert to grayscale.
+* -------------------------------------------------------------------------
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+* -------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,10 +113,23 @@ static void yuyv_to_8(void *in, void *out, int width, int height, filter_t *filt
     for (h = 0; h < height; h++)
         for (w = 0; w < width; w += 2, p += 4, q += 2)
         {
+#if 0
+int hack = p[0] + ((88 * p[1]) / 256) + ((183 * p[3]) / 256);
+if (hack < 255 || hack > 290)
+    continue;
+#endif
+
             if (filter &&
                 (p[1] < filter->min_u || p[1] > filter->max_u ||
                  p[3] < filter->min_v || p[3] > filter->max_v))
                 continue;
+
+#if  0
+hack = p[2] + ((88 * p[1]) / 256) + ((183 * p[3]) / 256);
+if (hack < 255 || hack > 290)
+    continue;
+#endif
+
             if (!filter || (p[0] >= filter->min_y && p[0] <= filter->max_y))
                 *q = p[0];
             if (!filter || (p[2] >= filter->min_y && p[2] <= filter->max_y))
@@ -406,9 +436,12 @@ int capture_clear(capture_t *c1, capture_t *c2, int threshold)
     while (count < threshold)
     {
         if ((c1 && capture_grab(c1) != 0) || (c2 && capture_grab(c2) != 0))
+        {
+            discard++;
             count = 0;
+        }
         else
-            discard++, count++;
+            count++;
     }
     return discard;
 }
@@ -422,7 +455,21 @@ void * capture_retrieve(capture_t *c, int bytes, filter_t *filter)
     if (bytes == 3)
         yuyv_to_rgb24 (c->last_frame_ptr, data, c->width, c->height, filter);
     else if (bytes == 1)
+    {
+extern char g_save_to_fname[];
+if (g_save_to_fname[0])
+{
+    FILE *fp;
+    fp = fopen(g_save_to_fname, "w");
+    if (fp)
+    {
+        fwrite(c->last_frame_ptr, 1, c->width * c->height * 2, fp);
+        fclose(fp);
+    }
+}
+
         yuyv_to_8(c->last_frame_ptr, data, c->width, c->height, filter);
+    }
     else
     {
         free(data);

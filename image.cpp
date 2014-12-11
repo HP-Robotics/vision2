@@ -1,3 +1,21 @@
+/*-------------------------------------------------------------------------
+* image.cpp - These are functions that require C++
+*             (Some OpenCV functions are C++ only)
+*
+* -------------------------------------------------------------------------
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program.  If not, see <http://www.gnu.org/licenses/>.
+* -------------------------------------------------------------------------*/
 #include <cstring>
 #include <stdio.h>
 #include <sys/time.h>
@@ -5,13 +23,11 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
+#include "opencv2/features2d/features2d.hpp"
+
 #include "image.h"
 
-/* These are functions that require C++ constructs.
-   We try to keep everything else in C, for speed */
-
 using namespace cv;
-
 
 void process_blur(IplImage *img, char *type, struct timeval *t)
 {
@@ -41,6 +57,7 @@ void perform_canny(IplImage *img, struct timeval *t, double threshold, int displ
         cvShowImage("Canny", img);
 }
 
+RNG rng(12345);
 void find_contours(IplImage *img, struct timeval *t, int display, int level)
 {
     struct timeval start, end, diff;
@@ -56,16 +73,37 @@ void find_contours(IplImage *img, struct timeval *t, int display, int level)
     gettimeofday(&end, NULL);
     timersub(&end, &start, &diff);
     timeradd(t, &diff, t);
-printf("Found %ld contours\n", contours.size());
+printf("Found %d contours\n", contours.size());
 
     if (display)
     {
-        Mat cnt_img = Mat::zeros(copy.size(), CV_8UC1);
-        drawContours( cnt_img, contours, -1, Scalar(128,255,255),
-                      3, CV_AA, hierarchy, level);
-
+        Mat cnt_img = Mat::zeros(copy.size(), CV_8UC3);
+        for (size_t i = 0; i < contours.size(); i++)
+        {
+            Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+            drawContours( cnt_img, contours, i, color, 2, 8, hierarchy, 0, Point() );
+        }
         imshow("Contours", cnt_img);
     }
+}
 
-    /* Fixme - free the Mat? */
+void perform_fast(IplImage *img, struct timeval *t, int display)
+{
+    struct timeval start, end, diff;
+    gettimeofday(&start, NULL);
+
+    FastFeatureDetector detector(10, true);
+
+    Mat a = cvarrToMat(img);
+    vector<KeyPoint> keypoints;
+    detector.detect(a, keypoints);
+
+    gettimeofday(&end, NULL);
+    timersub(&end, &start, &diff);
+    timeradd(t, &diff, t);
+
+printf("Found %d keypoints \n", keypoints.size());
+
+    if (display)
+        drawKeypoints(a, keypoints, a, Scalar::all(-1), DrawMatchesFlags::DRAW_OVER_OUTIMG|DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 }
