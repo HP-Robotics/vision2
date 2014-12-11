@@ -21,6 +21,7 @@
 #include <getopt.h>
 #include <sys/time.h>
 #include <termios.h>
+#include <sched.h>
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -221,6 +222,13 @@ static void fast_window(void)
 
 static void setup_windows(void)
 {
+    static int started = 0;
+    
+    if (g_display && ! started)
+    {
+        cvStartWindowThread();
+        started = 1;
+    }
     main_window();
     blur_window();
     canny_window();
@@ -425,6 +433,7 @@ int vision_main(int argc, char *argv[])
         return -1;
 
     system("echo 10 >> /sys/class/gpio/export"); //light start
+    usleep(1000);
     system("echo out >> /sys/class/gpio/gpio10/direction");
 
     if (capture_start(&g_cam, "/dev/video1", g_desired_width, g_desired_height, g_desired_fps) != 0)
@@ -436,7 +445,7 @@ int vision_main(int argc, char *argv[])
 
     gettimeofday(&main_start, NULL);
 
-    cvStartWindowThread();
+    setup_windows();
 
     while (1)
     {
@@ -459,6 +468,7 @@ int vision_main(int argc, char *argv[])
         if (capture_grab(&g_cam) > 0)
         {
             IplImage *img;
+
             img = vision_retrieve(&g_cam);
 
             gettimeofday(&end, NULL);
@@ -504,16 +514,18 @@ int vision_main(int argc, char *argv[])
                 g_snap = 0;
                 snap++;
             }
+
+            discard += capture_clear(&g_cam, NULL, 3);
         }
-
-        discard += capture_clear(&g_cam, NULL, 3);
-
+        else
+            sched_yield();
     }
 
     gettimeofday(&end, NULL);
     timersub(&end, &main_start, &diff);
     printf("Overall fps %g in %ld.%ld, discarded %d\n", g_count / (diff.tv_sec + (diff.tv_usec / 1000000.0)),
         diff.tv_sec, diff.tv_usec, discard);
+    printf("fps (with discards) %g\n", (g_count + discard) / (diff.tv_sec + (diff.tv_usec / 1000000.0)));
 
     capture_stop(&g_cam);
 
