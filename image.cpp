@@ -26,6 +26,7 @@
 #include "opencv2/features2d/features2d.hpp"
 
 #include "image.h"
+#include "vision.h"
 
 using namespace cv;
 
@@ -44,6 +45,7 @@ void process_blur(IplImage *img, char *type, struct timeval *t)
 void perform_canny(IplImage *img, struct timeval *t, double threshold, int display)
 {
     struct timeval start, end, diff;
+    int s;
     gettimeofday(&start, NULL);
 
     Mat a = cvarrToMat(img);
@@ -55,12 +57,17 @@ void perform_canny(IplImage *img, struct timeval *t, double threshold, int displ
 
     if (display)
         cvShowImage("Canny", img);
+
+    s = vision_snapshot_number();
+    if (s >= 0)
+        cvSaveImage(vision_file_template(s, "canny", "png"), img, 0);
 }
 
 RNG rng(12345);
 void find_contours(IplImage *img, struct timeval *t, int display, int level)
 {
     struct timeval start, end, diff;
+    int s;
     gettimeofday(&start, NULL);
 
     Mat copy = Mat(img, true);
@@ -73,9 +80,10 @@ void find_contours(IplImage *img, struct timeval *t, int display, int level)
     gettimeofday(&end, NULL);
     timersub(&end, &start, &diff);
     timeradd(t, &diff, t);
-printf("Found %d contours\n", contours.size());
 
-    if (display)
+    s = vision_snapshot_number();
+
+    if (display && s >= 0)
     {
         Mat cnt_img = Mat::zeros(copy.size(), CV_8UC3);
         for (size_t i = 0; i < contours.size(); i++)
@@ -83,8 +91,13 @@ printf("Found %d contours\n", contours.size());
             Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
             drawContours( cnt_img, contours, i, color, 2, 8, hierarchy, 0, Point() );
         }
-        imshow("Contours", cnt_img);
+        if (display)
+            imshow("Contours", cnt_img);
+
+        //if (s >= 0)
+        //    cvSaveImage(vision_file_template(s, "canny", "png"), cnt_img, 0);
     }
+
 }
 
 void perform_fast(IplImage *img, struct timeval *t, int display)
@@ -101,8 +114,6 @@ void perform_fast(IplImage *img, struct timeval *t, int display)
     gettimeofday(&end, NULL);
     timersub(&end, &start, &diff);
     timeradd(t, &diff, t);
-
-printf("Found %d keypoints \n", keypoints.size());
 
     if (display)
         drawKeypoints(a, keypoints, a, Scalar::all(-1), DrawMatchesFlags::DRAW_OVER_OUTIMG|DrawMatchesFlags::DRAW_RICH_KEYPOINTS);

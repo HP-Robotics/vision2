@@ -22,6 +22,9 @@
 #include <sys/time.h>
 #include <termios.h>
 #include <sched.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -50,7 +53,8 @@ int g_desired_fps = 1;
 int g_desired_width = 640;
 int g_desired_height = 480;
 
-int g_snap = 0;
+int g_snap_next = 0;
+int g_snap = 1;
 
 char *g_blur_type = "gaussian";
 
@@ -396,7 +400,7 @@ static inline void process_key(int c, filter_t *filter)
         print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time);
 
     else if (c == 'x')
-        g_snap = 1;
+        g_snap_next = 1;
 
     else if (c == ' ')
         cvWaitKey(0);
@@ -420,14 +424,28 @@ static inline void process_key(int c, filter_t *filter)
 
 }
 
+int vision_snapshot_number(void)
+{
+    if (! g_snap_next)
+        return -1;
+    return g_snap;
+}
+
+char *vision_file_template(int s, char *type, char *ext)
+{
+    static char buf[PATH_MAX];
+    sprintf(buf, "snaps/vision.%04d.%s.%s", s, type, ext);
+    return buf;
+}
+
 int vision_main(int argc, char *argv[])
 {
     struct timeval start, end, diff;
     struct timeval main_start;
 
     int discard = 0;
-    int snap = 1;
-    char fname[256];
+
+    mkdir("snaps", 0755);
 
     if (parse_arguments(argc, argv))
         return -1;
@@ -453,16 +471,16 @@ int vision_main(int argc, char *argv[])
 
         c = getch();
         if (c < 0 && g_display)
+        {
             c = cvWaitKey(1);
+            if (c != -1)
+                printf("got key 0x%x (%c)\n", c, c);
+        }
 
         if (c == 'q' || c == 27)
             break;
 
         process_key(c, &g_color_filter);
-        if (g_snap)
-            sprintf(g_save_to_fname, "camera.yuyv.%03d", snap);
-        else
-            g_save_to_fname[0] = 0;
 
         gettimeofday(&start, NULL);
         if (capture_grab(&g_cam) > 0)
@@ -478,17 +496,17 @@ int vision_main(int argc, char *argv[])
             if (g_display)
                 cvShowImage("Camera", img);
 
-            if (g_snap)
-            {
-                sprintf(fname, "camera.raw.%03d.png", snap);
-                cvSaveImage(fname, img, 0);
-            }
+            if (g_snap_next)
+                cvSaveImage(vision_file_template(g_snap, "initial", "png"), img, 0);
 
             if (g_blur)
             {
                 process_blur(img, g_blur_type, &g_total_blur_time);
                 if (g_display)
                     cvShowImage("Blur", img);
+
+                if (g_snap_next)
+                    cvSaveImage(vision_file_template(g_snap, "blur", "png"), img, 0);
             }
 
 
@@ -503,16 +521,18 @@ int vision_main(int argc, char *argv[])
                 perform_fast(img, &g_total_fast_time, g_display);
                 if (g_display)
                     cvShowImage("Fast", img);
+                if (g_snap_next)
+                    cvSaveImage(vision_file_template(g_snap, "fast", "png"), img, 0);
             }
 
             vision_release(&g_cam, &img);
 
             g_count++;
 
-            if (g_snap)
+            if (g_snap_next)
             {
-                g_snap = 0;
-                snap++;
+                g_snap_next = 0;
+                g_snap++;
             }
 
             discard += capture_clear(&g_cam, NULL, 3);

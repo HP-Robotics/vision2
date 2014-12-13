@@ -2,3 +2,5 @@ vision-i686
 *.o
 vision-x86_64
 vision-armv6l
+snaps
+view-i686

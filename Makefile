@@ -9,20 +9,29 @@ OBJS=\
 
 all: vision-$(ARCH)
 
-capture-$(ARCH).o: capture.c capture.h Makefile
+capture-$(ARCH).o: capture.c capture.h vision.h Makefile
 	gcc -c $(CFLAGS) -o $@ $<
 
-vision-$(ARCH).o: vision.c image.h capture.h Makefile
+vision-$(ARCH).o: vision.c image.h capture.h vision.h Makefile
 	gcc -c $(CFLAGS) -Wno-unused-function -o $@ $<
 
-image-$(ARCH).o: image.cpp image.h Makefile
+image-$(ARCH).o: image.cpp image.h vision.h Makefile
 	g++ -c $(CFLAGS) -o $@ $<
 
-vision-$(ARCH): main.cpp $(OBJS) image.h capture.h Makefile
+vision-$(ARCH): main.cpp $(OBJS) image.h capture.h vision.h Makefile
 	g++    $(CFLAGS) -o $@ $(LDFLAGS) $< $(OBJS)
+
+view-$(ARCH): view.c Makefile
+	gcc -Wall `pkg-config --cflags --libs gtkimageview gdk-2.0` -o $@ view.c
 
 clean:
 	rm -f $(OBJS)
 	rm -f vision-$(ARCH)
 	
 rebuild: clean all
+
+view: view-$(ARCH)
+	@echo done
+
+run:
+	./vision-$(ARCH)

@@ -32,6 +32,7 @@
 #include <linux/videodev2.h>
 
 #include "capture.h"
+#include "vision.h"
 
 /* convert from 4:2:2 YUYV interlaced to RGB24 */
 /* based on ccvt_yuyv_bgr32() from camstream */
@@ -446,28 +447,33 @@ int capture_clear(capture_t *c1, capture_t *c2, int threshold)
     return discard;
 }
 
+
 void * capture_retrieve(capture_t *c, int bytes, filter_t *filter)
 {
     void *data = NULL;
+    int s;
+
+    s = vision_snapshot_number();
+    if (s >= 0)
+    {
+        FILE *fp;
+        fp = fopen(vision_file_template(s, "yuv", "raw"), "w");
+        if (fp)
+        {
+            fwrite(c->last_frame_ptr, 1, c->width * c->height * 2, fp);
+            fclose(fp);
+        }
+    }
+
 
     data = calloc(1, c->width * c->height * bytes);
 
     if (bytes == 3)
+    {
         yuyv_to_rgb24 (c->last_frame_ptr, data, c->width, c->height, filter);
+    }
     else if (bytes == 1)
     {
-extern char g_save_to_fname[];
-if (g_save_to_fname[0])
-{
-    FILE *fp;
-    fp = fopen(g_save_to_fname, "w");
-    if (fp)
-    {
-        fwrite(c->last_frame_ptr, 1, c->width * c->height * 2, fp);
-        fclose(fp);
-    }
-}
-
         yuyv_to_8(c->last_frame_ptr, data, c->width, c->height, filter);
     }
     else
