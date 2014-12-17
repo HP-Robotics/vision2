@@ -26,12 +26,12 @@ struct mmap_buffer
 
 typedef struct color_filter
 {
+    int min_y;
+    int max_y;
     int min_u;
     int max_u;
     int min_v;
     int max_v;
-    int min_y;
-    int max_y;
 } filter_t;
 
 typedef struct capture_control

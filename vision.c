@@ -33,7 +33,7 @@
 #include "image.h"
 
 
-filter_t g_color_filter = { 117, 128, 0, 255, 0, 255 };
+filter_t g_color_filter = { 225, 255, 125, 135, 0, 255 };
 
 /* 1 color for mono, 3 colors for rgb */
 int g_colors = 1;
