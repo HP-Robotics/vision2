@@ -83,7 +83,7 @@ void find_contours(IplImage *img, struct timeval *t, int display, int level)
 
     s = vision_snapshot_number();
 
-    if (display && s >= 0)
+    if (display || s >= 0)
     {
         Mat cnt_img = Mat::zeros(copy.size(), CV_8UC3);
         for (size_t i = 0; i < contours.size(); i++)
