@@ -53,6 +53,9 @@ int capture_grab(capture_t *c);
 void * capture_retrieve(capture_t *c, int bytes, filter_t *filter);
 int capture_clear(capture_t *c1, capture_t *c2, int threshold);
 
+int capture_query_control(capture_t *c, int id, struct v4l2_queryctrl *ctrl);
+int capture_set_control(capture_t *c, int id, int val);
+int capture_get_control(capture_t *c, int id, int *val);
 
 #if defined(__cplusplus)
 };

@@ -484,3 +484,28 @@ void * capture_retrieve(capture_t *c, int bytes, filter_t *filter)
 
     return data;
 }
+
+int capture_query_control(capture_t *c, int id, struct v4l2_queryctrl *ctrl)
+{
+    ctrl->id = id;
+    return xioctl(c->fd, VIDIOC_QUERYCTRL, ctrl);
+}
+
+int capture_set_control(capture_t *c, int id, int val)
+{
+    struct v4l2_control ctrl;
+    ctrl.id = id;
+    ctrl.value = val;
+    return xioctl(c->fd, VIDIOC_S_CTRL, &ctrl);
+}
+
+int capture_get_control(capture_t *c, int id, int *val)
+{
+    int rc;
+    struct v4l2_control ctrl;
+    ctrl.id = id;
+    rc = xioctl(c->fd, VIDIOC_G_CTRL, &ctrl);
+    if (rc == 0)
+        *val = ctrl.value;
+    return rc;
+}

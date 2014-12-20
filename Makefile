@@ -35,3 +35,4 @@ view: view-$(ARCH)
 
 run:
 	./vision-$(ARCH)
+	stty sane

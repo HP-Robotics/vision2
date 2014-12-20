@@ -25,6 +25,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <linux/videodev2.h>
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -33,7 +34,7 @@
 #include "image.h"
 
 
-filter_t g_color_filter = { 225, 255, 125, 135, 0, 255 };
+filter_t g_color_filter = { 200, 255, 125, 135, 0, 115 };
 
 /* 1 color for mono, 3 colors for rgb */
 int g_colors = 1;
@@ -69,6 +70,18 @@ struct timeval g_total_canny_time;
 struct timeval g_total_fast_time;
 
 char g_save_to_fname[PATH_MAX];
+
+typedef struct
+{
+    unsigned int id;
+    char *name;
+    int val;
+    int offset;
+    int max;
+    float multiplier;
+} camera_control_t;
+
+
 
 static IplImage *vision_retrieve(capture_t *c)
 {
@@ -188,6 +201,59 @@ static void print_stats (long count, struct timeval *r, struct timeval *b, struc
         print_avg_time(can, count));
 }
 
+void camera_control_cb(int val, void *arg)
+{
+    camera_control_t *t = (camera_control_t *) arg;
+    capture_set_control(&g_cam, t->id, (int) ((val * t->multiplier) + t->offset));
+}
+
+static void setup_camera_controls(void)
+{
+    int i;
+    int id;
+    static camera_control_t camera_controls[32];
+    static int control_count = -1;
+    struct v4l2_queryctrl ctrl;
+
+    if (control_count < 0)
+    {
+        control_count = 0;
+
+        for (id = 0; control_count < sizeof(camera_controls) / sizeof(camera_controls[0]); id = ctrl.id)
+        {
+            memset(&ctrl, 0, sizeof(ctrl));
+            if (capture_query_control(&g_cam, id | V4L2_CTRL_FLAG_NEXT_CTRL, &ctrl) != 0)
+                break;
+
+            if (ctrl.flags & (V4L2_CTRL_FLAG_DISABLED | V4L2_CTRL_FLAG_INACTIVE | V4L2_CTRL_FLAG_READ_ONLY))
+                continue;
+
+            if ( ((ctrl.maximum - ctrl.minimum) / ctrl.step) <= 255)
+            {
+                camera_control_t *t;
+                t = &camera_controls[control_count++];
+                t->name = strdup((char *) ctrl.name);
+                t->id = ctrl.id;
+                t->multiplier = ctrl.step;
+                t->offset = -1 * ctrl.minimum;
+                t->max = ((ctrl.maximum - ctrl.minimum) / ctrl.step);
+            }
+            else
+                printf("Skipping %s for now\n", ctrl.name);
+        }
+    }
+
+    for (i = 0; i < control_count; i++)
+    {
+        camera_control_t *t = &camera_controls[i];
+        int val;
+
+        capture_get_control(&g_cam, t->id, &val);
+        t->val = val + t->offset;
+        cvCreateTrackbar2(t->name, "Toolbar", &t->val, t->max, &camera_control_cb, t);
+    }
+}
+
 static void setup_window(char *name, int x, int y, int show)
 {
     if (show)
@@ -202,6 +268,24 @@ static void setup_window(char *name, int x, int y, int show)
 static void main_window(void)
 {
     setup_window("Camera", 0, 0, g_display);
+}
+
+static void toolbar_window(void)
+{
+    static int displayed = 0;
+    setup_window("Toolbar", g_cam.width, 0, g_display);
+    if (displayed != g_display)
+    {
+        displayed = g_display;
+        cvCreateTrackbar("Y Min", "Toolbar", &g_color_filter.min_y, 255, NULL);
+        cvCreateTrackbar("Y Max", "Toolbar", &g_color_filter.max_y, 255, NULL);
+        cvCreateTrackbar("U Min", "Toolbar", &g_color_filter.min_u, 255, NULL);
+        cvCreateTrackbar("U Max", "Toolbar", &g_color_filter.max_u, 255, NULL);
+        cvCreateTrackbar("V Min", "Toolbar", &g_color_filter.min_v, 255, NULL);
+        cvCreateTrackbar("V Max", "Toolbar", &g_color_filter.max_v, 255, NULL);
+
+        setup_camera_controls();
+    }
 }
 
 static void blur_window(void)
@@ -227,12 +311,13 @@ static void fast_window(void)
 static void setup_windows(void)
 {
     static int started = 0;
-    
+
     if (g_display && ! started)
     {
         cvStartWindowThread();
         started = 1;
     }
+    toolbar_window();
     main_window();
     blur_window();
     canny_window();
@@ -474,7 +559,10 @@ int vision_main(int argc, char *argv[])
         {
             c = cvWaitKey(1);
             if (c != -1)
+            {
+                c &= 0xFFFF;
                 printf("got key 0x%x (%c)\n", c, c);
+            }
         }
 
         if (c == 'q' || c == 27)
