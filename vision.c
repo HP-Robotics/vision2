@@ -76,10 +76,23 @@ typedef struct
     unsigned int id;
     char *name;
     int val;
-    int offset;
-    int max;
+    int minimum;
+    int maximum;
+    int step;
+    int cvmax;
     float multiplier;
 } camera_control_t;
+
+typedef struct
+{
+    char *name;
+    int  default_value;
+} camera_default_t;
+
+camera_default_t g_camera_defaults[] =
+{
+    /* { "Brightness", -100 } */
+};
 
 
 
@@ -203,16 +216,39 @@ static void print_stats (long count, struct timeval *r, struct timeval *b, struc
 
 void camera_control_cb(int val, void *arg)
 {
+    int rc;
     camera_control_t *t = (camera_control_t *) arg;
-    capture_set_control(&g_cam, t->id, (int) ((val * t->multiplier) + t->offset));
+    int v;
+
+    if (t->minimum >= 0 && t->maximum <= 255)
+    {
+        v = val;
+        if (v < t->minimum)
+        {
+            cvSetTrackbarPos(t->name, "Toolbar", t->minimum);
+            return;
+        }
+    }
+    else
+    {
+        v = (val * t->multiplier) + t->minimum;
+        v -= (v - t->minimum) % t->step;
+    }
+
+    rc = capture_set_control(&g_cam, t->id, v);
+    if (getenv("DEBUG"))
+        printf("Set %s to %d: rc %d\n", t->name, v, rc);
+    if (rc != 0)
+        fprintf(stderr, "Error:  could not set %s to %d\n", t->name, v);
 }
+
+static camera_control_t camera_controls[64];
+static int control_count = -1;
 
 static void setup_camera_controls(void)
 {
-    int i;
     int id;
-    static camera_control_t camera_controls[32];
-    static int control_count = -1;
+    int j;
     struct v4l2_queryctrl ctrl;
 
     if (control_count < 0)
@@ -221,36 +257,73 @@ static void setup_camera_controls(void)
 
         for (id = 0; control_count < sizeof(camera_controls) / sizeof(camera_controls[0]); id = ctrl.id)
         {
+            camera_control_t *t;
             memset(&ctrl, 0, sizeof(ctrl));
             if (capture_query_control(&g_cam, id | V4L2_CTRL_FLAG_NEXT_CTRL, &ctrl) != 0)
                 break;
 
-            if (ctrl.flags & (V4L2_CTRL_FLAG_DISABLED | V4L2_CTRL_FLAG_INACTIVE | V4L2_CTRL_FLAG_READ_ONLY))
-                continue;
+            if (getenv("DEBUG"))
+                printf("ctrl %s; max %d, min %d, step %d, flags 0x%x\n",
+                    ctrl.name, ctrl.maximum, ctrl.minimum, ctrl.step, ctrl.flags);
 
-            if ( ((ctrl.maximum - ctrl.minimum) / ctrl.step) <= 255)
+            for (j = 0; j < sizeof(g_camera_defaults) / sizeof(g_camera_defaults[0]); j++)
+                if (strcmp(g_camera_defaults[j].name, (char *) ctrl.name) == 0)
+                {
+                    if (capture_set_control(&g_cam, ctrl.id, g_camera_defaults[j].default_value))
+                        fprintf(stderr, "Error setting %s to default %d\n", ctrl.name, 
+                                        g_camera_defaults[j].default_value);
+                }
+
+            if (ctrl.flags & (V4L2_CTRL_FLAG_DISABLED | V4L2_CTRL_FLAG_READ_ONLY))
             {
-                camera_control_t *t;
-                t = &camera_controls[control_count++];
-                t->name = strdup((char *) ctrl.name);
-                t->id = ctrl.id;
-                t->multiplier = ctrl.step;
-                t->offset = -1 * ctrl.minimum;
-                t->max = ((ctrl.maximum - ctrl.minimum) / ctrl.step);
+                printf("Skipping %s for now; disabled, or read only.\n", ctrl.name);
+                continue;
             }
+
+            t = &camera_controls[control_count++];
+            t->name = strdup((char *) ctrl.name);
+            t->id = ctrl.id;
+            t->minimum = ctrl.minimum;
+            t->maximum = ctrl.maximum;
+            t->step = ctrl.step;
+            t->multiplier = 0.0;
+
+            if (t->minimum >= 0 && t->maximum <= 255)
+                t->cvmax = ctrl.maximum;
             else
-                printf("Skipping %s for now\n", ctrl.name);
+            {
+                if ((ctrl.maximum - ctrl.minimum) / ctrl.step <= 255)
+                {
+                    t->cvmax = ((ctrl.maximum - ctrl.minimum) / ctrl.step);
+                    t->multiplier = ctrl.step;
+                }
+                else
+                {
+                    t->cvmax = 255;
+                    t->multiplier = (ctrl.maximum - ctrl.minimum) / 255;
+                }
+
+            }
         }
     }
 
+}
+
+static void display_camera_controls(void)
+{
+    int i;
     for (i = 0; i < control_count; i++)
     {
         camera_control_t *t = &camera_controls[i];
         int val;
 
         capture_get_control(&g_cam, t->id, &val);
-        t->val = val + t->offset;
-        cvCreateTrackbar2(t->name, "Toolbar", &t->val, t->max, &camera_control_cb, t);
+        if (t->minimum >= 0 && t->maximum <= 255)
+            t->val = val;
+        else
+            t->val = (val - t->minimum) / t->multiplier;
+        printf("%s: displaying value of %d as %d\n", t->name, val, t->val);
+        cvCreateTrackbar2(t->name, "Toolbar", &t->val, t->cvmax, &camera_control_cb, t);
     }
 }
 
@@ -284,7 +357,7 @@ static void toolbar_window(void)
         cvCreateTrackbar("V Min", "Toolbar", &g_color_filter.min_v, 255, NULL);
         cvCreateTrackbar("V Max", "Toolbar", &g_color_filter.max_v, 255, NULL);
 
-        setup_camera_controls();
+        display_camera_controls();
     }
 }
 
@@ -534,10 +607,6 @@ int vision_main(int argc, char *argv[])
     if (parse_arguments(argc, argv))
         return -1;
 
-    system("echo 10 >> /sys/class/gpio/export"); //light start
-    usleep(1000);
-    system("echo out >> /sys/class/gpio/gpio10/direction");
-
     if (capture_start(&g_cam, "/dev/video1", g_desired_width, g_desired_height, g_desired_fps) != 0)
         if (capture_start(&g_cam, "/dev/video0", g_desired_width, g_desired_height, g_desired_fps) != 0)
             return -1;
@@ -548,6 +617,7 @@ int vision_main(int argc, char *argv[])
     gettimeofday(&main_start, NULL);
 
     setup_windows();
+    setup_camera_controls();
 
     while (1)
     {
