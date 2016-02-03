@@ -314,7 +314,6 @@ static void setup_windows(void)
 
     if (g_display && ! started)
     {
-        cvStartWindowThread();
         started = 1;
     }
     toolbar_window();
