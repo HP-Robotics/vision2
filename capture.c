@@ -157,7 +157,10 @@ static int open_device(const char *name)
     int fd;
 
     if (stat(name, &st) == -1)
+    {
+        fprintf(stderr, "%s not found\n", name);
         return -1;
+    }
 
     if (!S_ISCHR(st.st_mode))
     {
