@@ -20,6 +20,7 @@ extern "C" {
 #endif
 void process_blur(IplImage *img, char *type, struct timeval *t);
 void perform_canny(IplImage *img, struct timeval *t, double threshold, int display);
+void perform_sobel(IplImage *img, struct timeval *t, int display);
 void find_contours(IplImage *img, struct timeval *t, int display, int level);
 void perform_fast(IplImage *img, struct timeval *t, int display);
 #if defined(__cplusplus)

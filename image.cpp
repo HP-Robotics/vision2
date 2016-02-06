@@ -35,8 +35,9 @@ void process_blur(IplImage *img, char *type, struct timeval *t)
     struct timeval start, end, diff;
     gettimeofday(&start, NULL);
     Mat a = cvarrToMat(img);
-    GaussianBlur(a, a, Size(3, 3), 1.0);
-
+    //GaussianBlur(a, a, Size(3, 3), 1.0);
+    blur(a, a, Size(3, 3),Point(-1,1),BORDER_DEFAULT);
+    //medianBlur(a,a, 5);
     gettimeofday(&end, NULL);
     timersub(&end, &start, &diff);
     timeradd(t, &diff, t);
@@ -62,7 +63,26 @@ void perform_canny(IplImage *img, struct timeval *t, double threshold, int displ
     if (s >= 0)
         cvSaveImage(vision_file_template(s, "canny", "png"), img, 0);
 }
+void perform_sobel(IplImage *img, struct timeval *t, int display)
+{
+    struct timeval start, end, diff;
+    int s;
+    gettimeofday(&start, NULL);
 
+    Mat a = cvarrToMat(img);
+    Sobel(a, a, -1,1, 0, 5, 2, 0, BORDER_DEFAULT);
+
+    gettimeofday(&end, NULL);
+    timersub(&end, &start, &diff);
+    timeradd(t, &diff, t);
+
+    if (display)
+        cvShowImage("Sobel", img);
+
+    s = vision_snapshot_number();
+    if (s >= 0)
+        cvSaveImage(vision_file_template(s, "sobel", "png"), img, 0);
+}
 RNG rng(12345);
 void find_contours(IplImage *img, struct timeval *t, int display, int level)
 {

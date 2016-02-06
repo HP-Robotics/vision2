@@ -45,6 +45,7 @@ int g_filter = 0;
 int g_blur = 0;
 int g_contours = 0;
 int g_canny = 0;
+int g_sobel = 0;
 int g_fast = 0;
 
 double g_canny_threshold = 25.0;
@@ -67,6 +68,7 @@ struct timeval g_total_retrieve_time;
 struct timeval g_total_blur_time;
 struct timeval g_total_contour_time;
 struct timeval g_total_canny_time;
+struct timeval g_total_sobel_time;
 struct timeval g_total_fast_time;
 
 char g_save_to_fname[PATH_MAX];
@@ -139,6 +141,7 @@ static int parse_arguments(int argc, char *argv[])
         {"height",  required_argument, 0,  'h' },
         {"blur",    required_argument, 0,  'b' },
         {"canny",   required_argument, 0,  'a' },
+        {"sobel",   required_argument, 0,  '1' },
         {"contours", required_argument, 0, 'z' },
         {"fast",    no_argument,       0,  's' },
         {0,         0,                 0,  0 }
@@ -179,7 +182,8 @@ static int parse_arguments(int argc, char *argv[])
                 g_canny_threshold = (double) atoi(optarg);
                 g_canny = 1;
                 break;
-
+            case '1':
+                g_sobel=1;
             case 'z':
                 g_contour_level = atoi(optarg);
                 g_contours = 1;
@@ -205,13 +209,14 @@ static double print_avg_time(struct timeval *t, long count)
     return ret;
 }
 
-static void print_stats (long count, struct timeval *r, struct timeval *b, struct timeval *c, struct timeval *can)
+static void print_stats (long count, struct timeval *r, struct timeval *b, struct timeval *c, struct timeval *can, struct timeval *sob)
 {
-    printf("Took %ld pictures. [retrieve %g|blur %g|contour %g|canny %g]\n", count,
+    printf("Took %ld pictures. [retrieve %g|blur %g|contour %g|canny %g|sobel %g]\n", count,
         print_avg_time(r, count),
         print_avg_time(b, count),
         print_avg_time(c, count),
-        print_avg_time(can, count));
+        print_avg_time(can, count),
+        print_avg_time(sob, count));
 }
 
 void camera_control_cb(int val, void *arg)
@@ -370,6 +375,10 @@ static void canny_window(void)
 {
     setup_window("Canny", 0, g_cam.height, g_canny && g_display);
 }
+static void sobel_window(void)
+{
+    setup_window("Sobel", 0, g_cam.height, g_sobel && g_display);
+}
 
 static void contour_window(void)
 {
@@ -393,6 +402,7 @@ static void setup_windows(void)
     main_window();
     blur_window();
     canny_window();
+    sobel_window();
     contour_window();
     fast_window();
 }
@@ -528,6 +538,12 @@ static inline void process_key(int c, filter_t *filter)
         printf("canny %s\n", g_canny ? "on" : "off");
         canny_window();
     }
+    else if (c == '1')
+    {
+        g_sobel = !g_sobel;
+        printf("sobel %s\n", g_sobel ? "on" : "off");
+        sobel_window();
+    }
 
     else if (c == 'b')
     {
@@ -554,7 +570,7 @@ static inline void process_key(int c, filter_t *filter)
         fast_window();
     }
     else if (c == '.')
-        print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time);
+        print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_sobel_time);
 
     else if (c == 'x')
         g_snap_next = 1;
@@ -669,7 +685,8 @@ int vision_main(int argc, char *argv[])
 
             if (g_canny)
                 perform_canny(img, &g_total_canny_time, g_canny_threshold, g_display);
-
+            if(g_sobel)
+                perform_sobel(img, &g_total_sobel_time, g_display);
             if (g_contours)
                 find_contours(img, &g_total_contour_time, g_display, g_contour_level);
 
@@ -708,7 +725,7 @@ int vision_main(int argc, char *argv[])
 
     cvDestroyAllWindows();
 
-    print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time);
+    print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_sobel_time);
 
     return 0;
 }
