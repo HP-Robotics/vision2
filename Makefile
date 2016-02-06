@@ -19,7 +19,7 @@ image-$(ARCH).o: image.cpp image.h vision.h Makefile
 	g++ -c $(CFLAGS) -o $@ $<
 
 vision-$(ARCH): main.cpp $(OBJS) image.h capture.h vision.h Makefile
-	g++    $(CFLAGS) -o $@ $(LDFLAGS) $< $(OBJS)
+	g++    $(CFLAGS) -o $@ $< $(OBJS) $(LDFLAGS)
 
 view-$(ARCH): view.c Makefile
 	gcc -Wall `pkg-config --cflags --libs gtkimageview gdk-2.0` -o $@ view.c
