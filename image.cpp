@@ -36,7 +36,7 @@ void process_blur(IplImage *img, char *type, struct timeval *t)
     gettimeofday(&start, NULL);
     Mat a = cvarrToMat(img);
     //GaussianBlur(a, a, Size(3, 3), 1.0);
-    blur(a, a, Size(3, 3),Point(-1,1),BORDER_DEFAULT);
+    blur(a, a, Size(5, 5),Point(-1,1),BORDER_DEFAULT);
     //medianBlur(a,a, 5);
     gettimeofday(&end, NULL);
     timersub(&end, &start, &diff);
@@ -119,7 +119,39 @@ void find_contours(IplImage *img, struct timeval *t, int display, int level)
     }
 
 }
+void Hough(IplImage *img, struct timeval *t, int display){
 
+	struct timeval start, end, diff;
+    gettimeofday(&start, NULL);
+    int s;
+    Mat copy=Mat(img,true);
+    vector<Vec4i> lines;
+    
+    HoughLinesP(copy, lines, 1, CV_PI/180, 25, 30, 20 );
+    
+    gettimeofday(&end,NULL);
+    timersub(&end, &start, &diff);
+    timeradd(t, &diff, t);
+    
+    s=vision_snapshot_number();
+    
+    if(display || s>=0){
+    	Mat cnt_img = Mat::zeros(copy.size(), CV_8UC3);
+    	for( size_t i = 0; i < lines.size(); i++ )
+    	{
+        	Vec4i l = lines[i];
+        	line( cnt_img, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1,4);
+    	}
+    	//printf("%d Lines found",i);
+    	if(display){
+    		imshow("HoughLines", cnt_img);
+    	}
+    	if (s>=0){
+    		IplImage temp = cnt_img;
+    	    cvSaveImage(vision_file_template(s, "Hough", "png"), &temp, 0);
+    	    }
+		}
+}
 void perform_fast(IplImage *img, struct timeval *t, int display)
 {
     struct timeval start, end, diff;

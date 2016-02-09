@@ -34,7 +34,7 @@
 #include "image.h"
 
 
-filter_t g_color_filter = { 200, 255, 125, 135, 0, 115 };
+filter_t g_color_filter = { 0, 255, 0, 255, 0, 54 };
 
 /* 1 color for mono, 3 colors for rgb */
 int g_colors = 1;
@@ -47,6 +47,7 @@ int g_contours = 0;
 int g_canny = 0;
 int g_sobel = 0;
 int g_fast = 0;
+int g_hough = 0;
 
 double g_canny_threshold = 25.0;
 int g_contour_level = 1;
@@ -144,6 +145,7 @@ static int parse_arguments(int argc, char *argv[])
         {"sobel",   required_argument, 0,  '1' },
         {"contours", required_argument, 0, 'z' },
         {"fast",    no_argument,       0,  's' },
+        {"hough", required_argument, 0, '2' },
         {0,         0,                 0,  0 }
     };
 
@@ -192,7 +194,8 @@ static int parse_arguments(int argc, char *argv[])
             case 's':
                 g_fast = 1;
                 break;
-
+			case '2':
+				g_hough=1;
             case -1:
                 return 0;
 
@@ -389,7 +392,10 @@ static void fast_window(void)
 {
     setup_window("Fast", g_cam.width, g_cam.height, g_fast && g_display);
 }
-
+static void hough_window(void)
+{
+	setup_window("Hough", g_cam.width, g_cam.height, g_hough && g_display);
+}
 static void setup_windows(void)
 {
     static int started = 0;
@@ -405,6 +411,7 @@ static void setup_windows(void)
     sobel_window();
     contour_window();
     fast_window();
+    hough_window();
 }
 
 static void key_usage(int c)
@@ -569,6 +576,12 @@ static inline void process_key(int c, filter_t *filter)
         printf("fast %s\n", g_fast ? "on" : "off");
         fast_window();
     }
+    else if(c=='2')
+    {
+    	g_hough=!g_hough;
+    	printf("hough %s\n", g_fast ? "on" : "off");
+    	hough_window();
+    }
     else if (c == '.')
         print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_sobel_time);
 
@@ -689,7 +702,8 @@ int vision_main(int argc, char *argv[])
                 perform_sobel(img, &g_total_sobel_time, g_display);
             if (g_contours)
                 find_contours(img, &g_total_contour_time, g_display, g_contour_level);
-
+			if (g_hough)
+				Hough(img, &g_total_contour_time, g_display);
             if (g_fast)
             {
                 perform_fast(img, &g_total_fast_time, g_display);
