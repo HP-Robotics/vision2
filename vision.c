@@ -34,7 +34,7 @@
 #include "image.h"
 
 
-filter_t g_color_filter = { 0, 255, 0, 255, 0, 54 };
+filter_t g_color_filter = { 0, 23, 0, 134, 0, 122 };
 
 /* 1 color for mono, 3 colors for rgb */
 int g_colors = 1;
@@ -49,7 +49,7 @@ int g_sobel = 0;
 int g_fast = 0;
 int g_hough = 0;
 
-double g_canny_threshold = 25.0;
+double g_canny_threshold = 10.0;
 int g_contour_level = 1;
 
 int g_desired_fps = 1;
