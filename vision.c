@@ -41,13 +41,13 @@ int g_colors = 1;
 
 /* Toggles for whether or not to do and display various things */
 int g_display = 0;
-int g_filter = 0;
-int g_blur = 0;
+int g_filter = 1;
+int g_blur = 1;
 int g_contours = 0;
-int g_canny = 0;
+int g_canny = 1;
 int g_sobel = 0;
 int g_fast = 0;
-int g_hough = 0;
+int g_hough = 1;
 
 double g_canny_threshold = 10.0;
 int g_contour_level = 1;
@@ -60,6 +60,7 @@ int g_snap_next = 0;
 int g_snap = 1;
 
 char *g_blur_type = "gaussian";
+char *g_single;
 
 long g_count = 0;
 
@@ -146,6 +147,7 @@ static int parse_arguments(int argc, char *argv[])
         {"contours", required_argument, 0, 'z' },
         {"fast",    no_argument,       0,  's' },
         {"hough", required_argument, 0, '2' },
+        {"single", required_argument, 0, 'i' },
         {0,         0,                 0,  0 }
     };
 
@@ -173,6 +175,10 @@ static int parse_arguments(int argc, char *argv[])
 
             case 'h':
                 g_desired_height = atoi(optarg);
+                break;
+
+            case 'i':
+                g_single = strdup(optarg);
                 break;
 
             case 'b':
@@ -624,6 +630,48 @@ char *vision_file_template(int s, char *type, char *ext)
     return buf;
 }
 
+
+void process_one_image(IplImage *img)
+{
+
+    if (g_display)
+        cvShowImage("Camera", img);
+
+    if (g_snap_next)
+        cvSaveImage(vision_file_template(g_snap, "initial", "png"), img, 0);
+
+    if (g_blur)
+    {
+        process_blur(img, g_blur_type, &g_total_blur_time);
+        if (g_display)
+            cvShowImage("Blur", img);
+
+        if (g_snap_next)
+            cvSaveImage(vision_file_template(g_snap, "blur", "png"), img, 0);
+    }
+
+
+    if (g_canny)
+        perform_canny(img, &g_total_canny_time, g_canny_threshold, g_display);
+    if(g_sobel)
+        perform_sobel(img, &g_total_sobel_time, g_display);
+    if (g_contours)
+        find_contours(img, &g_total_contour_time, g_display, g_contour_level);
+
+    if (g_hough)
+        Hough(img, &g_total_contour_time, g_display);
+
+    if (g_fast)
+    {
+        perform_fast(img, &g_total_fast_time, g_display);
+        if (g_display)
+            cvShowImage("Fast", img);
+        if (g_snap_next)
+            cvSaveImage(vision_file_template(g_snap, "fast", "png"), img, 0);
+    }
+
+}
+
 int vision_main(int argc, char *argv[])
 {
     struct timeval start, end, diff;
@@ -635,6 +683,19 @@ int vision_main(int argc, char *argv[])
 
     if (parse_arguments(argc, argv))
         return -1;
+
+    if (g_single) {
+        IplImage *img;
+        img = cvLoadImage(g_single, CV_LOAD_IMAGE_GRAYSCALE);
+        if (!img)
+        {
+            fprintf(stderr, "Error:  cannot read %s\n", g_single);
+            return -1;
+        }
+        process_one_image(img);
+        cvWaitKey(0);
+        return 0;
+    }
 
     if (capture_start(&g_cam, "/dev/video1", g_desired_width, g_desired_height, g_desired_fps) != 0)
         if (capture_start(&g_cam, "/dev/video0", g_desired_width, g_desired_height, g_desired_fps) != 0)
@@ -679,40 +740,7 @@ int vision_main(int argc, char *argv[])
             timersub(&end, &start, &diff);
             timeradd(&g_total_retrieve_time, &diff, &g_total_retrieve_time);
 
-            if (g_display)
-                cvShowImage("Camera", img);
-
-            if (g_snap_next)
-                cvSaveImage(vision_file_template(g_snap, "initial", "png"), img, 0);
-
-            if (g_blur)
-            {
-                process_blur(img, g_blur_type, &g_total_blur_time);
-                if (g_display)
-                    cvShowImage("Blur", img);
-
-                if (g_snap_next)
-                    cvSaveImage(vision_file_template(g_snap, "blur", "png"), img, 0);
-            }
-
-
-            if (g_canny)
-                perform_canny(img, &g_total_canny_time, g_canny_threshold, g_display);
-            if(g_sobel)
-                perform_sobel(img, &g_total_sobel_time, g_display);
-            if (g_contours)
-                find_contours(img, &g_total_contour_time, g_display, g_contour_level);
-			if (g_hough)
-				Hough(img, &g_total_contour_time, g_display);
-            if (g_fast)
-            {
-                perform_fast(img, &g_total_fast_time, g_display);
-                if (g_display)
-                    cvShowImage("Fast", img);
-                if (g_snap_next)
-                    cvSaveImage(vision_file_template(g_snap, "fast", "png"), img, 0);
-            }
-
+            process_one_image(img);
             vision_release(&g_cam, &img);
 
             g_count++;
