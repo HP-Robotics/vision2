@@ -33,8 +33,8 @@
 #include "capture.h"
 #include "image.h"
 
-
-filter_t g_color_filter = { 0, 23, 0, 134, 0, 122 };
+//Woodshop filter { 0, 23, 0, 134, 0, 122 }
+filter_t g_color_filter = { 0, 128, 0, 128, 0, 102 };
 
 /* 1 color for mono, 3 colors for rgb */
 int g_colors = 1;

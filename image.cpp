@@ -136,21 +136,26 @@ void Hough(IplImage *img, struct timeval *t, int display){
     if(display || s>=0){
     	Mat cnt_img = Mat::zeros(copy.size(), CV_8UC3);
     	int size=lines.size();
+    	int maxsize=size;
     	for( size_t i = 0; i < lines.size(); i++ )
     	{
         	Vec4i l = lines[i];
-        	line( cnt_img, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1,4);
+        	//line( cnt_img, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1,4);
     	}
     	int testline=0;
     	int matches=0;
     	while (testline<size){
-    		Vec2i a1=Vec2i(lines[testline][0],lines[testline][1]);
-    		Vec2i a2=Vec2i(lines[testline][2],lines[testline][3]);
+
     		int loopline=0;
     		while(loopline<size){
+    				Vec2i a1=Vec2i(lines[testline][0],lines[testline][1]);
+    				Vec2i a2=Vec2i(lines[testline][2],lines[testline][3]);
+    				size=lines.size();
     				float theta=0;
     				Vec2i b1=Vec2i(lines[loopline][0],lines[loopline][1]);
     				Vec2i b2=Vec2i(lines[loopline][2],lines[loopline][3]);
+    				//line(cnt_img,Point(a1),Point(a2),Scalar(0,255,255),1,4);
+    				//line(cnt_img,Point(b1),Point(b2),Scalar(255,0,255),1,4);
     				theta=abs(float((a2-a1).dot(b2-b1)));
     				//printf("%g, %g\n",theta,0*(norm(a2-a1)*norm(b2-b1)));
     				if(theta>0.95*(norm(a2-a1)*norm(b2-b1)) && loopline!=testline){
@@ -159,7 +164,8 @@ void Hough(IplImage *img, struct timeval *t, int display){
     					//printf("%g, %g, %g, %g, %g\n",float((a2-b1).dot(b2-b1)),(a2-b1).dot(b2-b1)/norm(b2-b1),norm(b2-b1),norm(a2-b1),a2Distance);
     					float a1Distance=pow(norm(a1-b1),2)-pow(((a1-b1).dot(b2-b1)/norm(b2-b1)),2);
     					//printf("%g, %g\n",a2Distance,a1Distance);
-    					if(a2Distance<50*50 && a1Distance<50*50){
+    					if(a2Distance<100*100 && a1Distance<100*100){
+    						
     						matches+=1;
     						Vec2i Bleep1Vector=float((b2-b1).dot(a1-b1))/norm(b2-b1)/norm(b2-b1)*(b2-b1);
     						Vec2i Bleep2Vector=float((b2-b1).dot(a2-b1))/norm(b2-b1)/norm(b2-b1)*(b2-b1);
@@ -207,21 +213,29 @@ void Hough(IplImage *img, struct timeval *t, int display){
     						merge1=(mindistance/norm(merge2-merge1))*(merge2-merge1)+merge1;
     						merge2=temppoint;
     						
-    						line(cnt_img, Point(merge1),Point(merge2),Scalar(0,255,0),1,4);
+    						//line(cnt_img, Point(merge1),Point(merge2),Scalar(255,0,float(loopline)/size*255),1,4);
     						
     						//Point2f(((a2-b1)-a2Distance*(b2-b1)/norm(b2-b1))/2);
-    						printf("%g vs. %g\n",theta,0.9*norm(a2-a1)*(norm(b2-b1)));
+    						//printf("%g vs. %g\n",theta,0.9*norm(a2-a1)*(norm(b2-b1)));
     						//printf("%f versus %f\n",merge2height,merge1height);
     						//line(cnt_img, a1,b1,Scalar(255,0,0),1,4);
     						//line(cnt_img, a2,b2,Scalar(0,255,0),1,4);
+    						printf("\n");
+    						Vec4i Out=Vec4i(merge1[0],merge1[1],merge2[0],merge2[1]);
+    						lines[testline]=Out;
+    						//if(loopline<testline){
+    						//	testline--;
+    						//}
     						
-    						lines[testline][0]=merge1[0];
-    						lines[testline][1]=merge1[1];
-    						lines[testline][2]=merge2[0];
-    						lines[testline][3]=merge2[1];
-    						
-    						lines[loopline]=lines[size];
-    						size--;
+    						lines.erase(lines.begin()+loopline);
+    						/*
+    						if(display){
+    							char name[30];
+    							sprintf(name,"HoughLines%d,%d",testline,loopline);
+    							imshow(name, cnt_img);
+    							cnt_img=Mat::zeros(copy.size(), CV_8UC3);
+    						}
+    						*/
 
     					}
     					else{
@@ -240,10 +254,11 @@ void Hough(IplImage *img, struct timeval *t, int display){
     		line(cnt_img,Point(out[0],out[1]),Point(out[2],out[3]),Scalar(255,255,0),1,4);
     		testline++;
     	}
-    	printf("%d Lines found, %d Matches found: \n", size,matches);
     	if(display){
-    		imshow("HoughLines", cnt_img);
-    	}
+    							imshow("HoughLines", cnt_img);
+    							cnt_img=Mat::zeros(copy.size(), CV_8UC3);
+    						}
+    	printf("%d Lines found, %d Matches found: \n", size,matches);
     	if (s>=0){
     		IplImage temp = cnt_img;
     	    cvSaveImage(vision_file_template(s, "Hough", "png"), &temp, 0);
