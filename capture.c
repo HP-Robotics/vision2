@@ -512,3 +512,18 @@ int capture_get_control(capture_t *c, int id, int *val)
         *val = ctrl.value;
     return rc;
 }
+
+int capture_yuv_to_rgb(void *in, void *out, int width, int height, int colors, filter_t *filter)
+{
+    if (colors == 3)
+    {
+        yuyv_to_rgb24 (in, out, width, height, filter);
+        return 0;
+    }
+    else if (colors == 1)
+    {
+        yuyv_to_8(in, out, width, height, filter);
+        return 0;
+    }
+    return -1;
+}

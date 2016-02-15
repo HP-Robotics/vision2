@@ -56,6 +56,7 @@ int capture_clear(capture_t *c1, capture_t *c2, int threshold);
 int capture_query_control(capture_t *c, int id, struct v4l2_queryctrl *ctrl);
 int capture_set_control(capture_t *c, int id, int val);
 int capture_get_control(capture_t *c, int id, int *val);
+int capture_yuv_to_rgb(void *in, void *out, int width, int height, int colors, filter_t *filter);
 
 #if defined(__cplusplus)
 };

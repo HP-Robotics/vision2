@@ -124,6 +124,57 @@ static void vision_release(capture_t *c, IplImage **img)
 }
 
 
+static int compute_size(long size, int *width, int *height)
+{
+    if (size == 640 * 480 * 2)
+    {
+        *width = 640;
+        *height = 480;
+        return 0;
+    }
+
+    return -1;
+}
+
+IplImage * vision_from_raw_file(char *filename)
+{
+    void *raw_data = NULL;
+    void *data = NULL;
+    IplImage *img = NULL;
+    FILE *fp;
+    struct stat s;
+    int width;
+    int height;
+
+    if (stat(filename, &s))
+    {
+        return NULL;
+    }
+
+    fp = fopen(filename, "rb");
+    if (!fp)
+        return NULL;
+
+    if (compute_size(s.st_size, &width, &height)){
+        fprintf(stderr, "Error: size of %ld not understood.\n", s.st_size);
+        return NULL;
+    }
+
+    raw_data = calloc(1, s.st_size);
+    fread(raw_data, 1, s.st_size, fp);
+    fclose(fp);
+
+    data = calloc(1, width * height * g_colors);
+    if (capture_yuv_to_rgb(raw_data, data, width, height, g_colors, g_filter ? &g_color_filter : NULL))
+        return NULL;
+
+    img = cvCreateImageHeader(cvSize(width, height),  IPL_DEPTH_8U, g_colors);
+    cvSetData(img, data, width * g_colors);
+    free(raw_data);
+
+    return img;
+}
+
 static void usage(char *argv0)
 {
     printf("%s [--display] [--color [--fps n] [--width n] [--height n]\n", argv0);
@@ -686,7 +737,11 @@ int vision_main(int argc, char *argv[])
 
     if (g_single) {
         IplImage *img;
-        img = cvLoadImage(g_single, CV_LOAD_IMAGE_GRAYSCALE);
+
+        if (strlen(g_single) >= 3 && strcmp(g_single + strlen(g_single) - 3, "raw") == 0)
+            img = vision_from_raw_file(g_single);
+        else
+            img = cvLoadImage(g_single, CV_LOAD_IMAGE_UNCHANGED);
         if (!img)
         {
             fprintf(stderr, "Error:  cannot read %s\n", g_single);
