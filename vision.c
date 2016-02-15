@@ -175,10 +175,23 @@ IplImage * vision_from_raw_file(char *filename)
     return img;
 }
 
+IplImage * vision_from_normal_file(char *filename)
+{
+    IplImage *img;
+    img = cvLoadImage(filename, CV_LOAD_IMAGE_UNCHANGED);
+    if (!img)
+        return NULL;
+
+        // TODO - filter...
+    return img;
+}
+
 static void usage(char *argv0)
 {
     printf("%s [--display] [--color [--fps n] [--width n] [--height n]\n", argv0);
-    printf("%*.*s [--blur type] [--canny rate] [--contours xx] [--fast]\n", (int) strlen(argv0), (int) strlen(argv0), "");
+    printf("%*.*s [--blur type] [--canny rate] [--contours xx] [--fast] [--sobel xxx] [--hough xxx]\n", (int) strlen(argv0), (int) strlen(argv0), "");
+    printf("%*.*s [--no-filter] [--filter]\n", (int) strlen(argv0), (int) strlen(argv0), "");
+    printf("%*.*s [--single filename]\n", (int) strlen(argv0), (int) strlen(argv0), "");
 }
 
 static int parse_arguments(int argc, char *argv[])
@@ -189,6 +202,8 @@ static int parse_arguments(int argc, char *argv[])
     {
         {"display", no_argument,       0,  'd' },
         {"color",   no_argument,       0,  'c' },
+        {"no-filter", no_argument,     0,  'T' },
+        {"filter", no_argument,     0,     't' },
         {"fps",     required_argument, 0,  'f' },
         {"width",   required_argument, 0,  'w' },
         {"height",  required_argument, 0,  'h' },
@@ -205,7 +220,7 @@ static int parse_arguments(int argc, char *argv[])
     while (1)
     {
         int option_index = 0;
-        c = getopt_long(argc, argv, "dcf:w:h:b:a:z:s", long_options, &option_index);
+        c = getopt_long(argc, argv, "dcTtf:w:h:b:a:1:z:s:2:i:", long_options, &option_index);
         switch(c)
         {
             case 'd':
@@ -214,6 +229,14 @@ static int parse_arguments(int argc, char *argv[])
 
             case 'c':
                 g_colors = 3;
+                break;
+
+            case 'T':
+                g_filter = 0;
+                break;
+
+            case 't':
+                g_filter = 1;
                 break;
 
             case 'f':
@@ -741,7 +764,7 @@ int vision_main(int argc, char *argv[])
         if (strlen(g_single) >= 3 && strcmp(g_single + strlen(g_single) - 3, "raw") == 0)
             img = vision_from_raw_file(g_single);
         else
-            img = cvLoadImage(g_single, CV_LOAD_IMAGE_UNCHANGED);
+            img = vision_from_normal_file(g_single);
         if (!img)
         {
             fprintf(stderr, "Error:  cannot read %s\n", g_single);
