@@ -29,7 +29,247 @@
 #include "vision.h"
 
 using namespace cv;
+vector<Vec4i> CullLines(vector<Vec4i> lines, float angle,int distance, int gap){
+		int size=lines.size();
+    	int testline=0;
+    	int matches=0;
+    	while (testline<size){
 
+    		int loopline=0;
+    		while(loopline<size){
+    				Vec2i a1=Vec2i(lines[testline][0],lines[testline][1]);
+    				Vec2i a2=Vec2i(lines[testline][2],lines[testline][3]);
+    				size=lines.size();
+    				float theta=0;
+    				Vec2i b1=Vec2i(lines[loopline][0],lines[loopline][1]);
+    				Vec2i b2=Vec2i(lines[loopline][2],lines[loopline][3]);
+    				theta=abs(float((a2-a1).dot(b2-b1)));
+    				if(theta>angle*(norm(a2-a1)*norm(b2-b1)) && loopline!=testline){
+    				
+    					float a2Distance=pow(norm(a2-b1),2)-pow(((a2-b1).dot(b2-b1)/norm(b2-b1)),2);
+    					float a1Distance=pow(norm(a1-b1),2)-pow(((a1-b1).dot(b2-b1)/norm(b2-b1)),2);
+    					if(a2Distance<distance*distance && a1Distance<distance*distance){
+    						
+    						matches+=1;
+    						Vec2i Bleep1Vector=float((b2-b1).dot(a1-b1))/norm(b2-b1)/norm(b2-b1)*(b2-b1);
+    						Vec2i Bleep2Vector=float((b2-b1).dot(a2-b1))/norm(b2-b1)/norm(b2-b1)*(b2-b1);
+    						
+    						Vec2i print1point=(a1-b1)-Bleep1Vector;
+    						Vec2i print2point=(a2-b1)-Bleep2Vector;
+    						Vec2i merge1=(a1-b1)-print1point/2;
+    						Vec2i merge2=(a2-b1)-print2point/2;
+    						merge1=merge1+b1;
+    						merge2=merge2+b1;    						
+    						float Distances[4];
+    						Distances[0]=(a2-merge1).dot(merge2-merge1)/norm(merge2-merge1);
+    						Distances[1]=(a1-merge1).dot(merge2-merge1)/norm(merge2-merge1);
+    						Distances[2]=(b1-merge1).dot(merge2-merge1)/norm(merge2-merge1);
+    						Distances[3]=(b2-merge1).dot(merge2-merge1)/norm(merge2-merge1);
+    						
+    						if((Distances[0]<max(Distances[2],Distances[3])+gap && Distances[0]>min(Distances[2],Distances[3])-gap)
+    						||(Distances[1]<max(Distances[2],Distances[3])+gap && Distances[1]>min(Distances[2],Distances[3])-gap)){
+    						float maxdistance = Distances[0];
+    						
+    						float mindistance = maxdistance;
+    						printf("%f, %f, %f\n",Distances[0],maxdistance,mindistance);
+    						for(int i =1;i<4;i++){
+    							printf("%f, %f, %f\n",Distances[i],maxdistance,mindistance);
+    							if(maxdistance<Distances[i]){
+    								maxdistance=Distances[i];
+    							}
+    							if(mindistance>Distances[i]){
+    								mindistance=Distances[i];
+    							}
+    						}
+    						
+    						printf("%f, %f, %f\n",maxdistance,mindistance);
+    						Vec2i temppoint=(maxdistance/norm(merge2-merge1))*(merge2-merge1)+merge1;
+    						merge1=(mindistance/norm(merge2-merge1))*(merge2-merge1)+merge1;
+    						merge2=temppoint;
+    						printf("\n");
+    						Vec4i Out=Vec4i(merge1[0],merge1[1],merge2[0],merge2[1]);
+    						lines[testline]=Out;
+    						lines.erase(lines.begin()+loopline);
+    						}
+    						else{
+    						loopline++;
+    						}
+
+    					}
+    					else{
+    						loopline++;
+    					}
+    				}
+    				else{
+    					loopline++;
+    				}
+    		}
+    		testline++;
+    	}
+    	return lines;
+
+}
+vector<Vec4i> GetGoals(vector<Vec4i> lines, int error){
+	vector<Vec4i> Out;
+	unsigned int lineIndex=0;
+	while(lineIndex<lines.size()){
+		Vec4i Main=lines[lineIndex];
+		int intersects=0;
+		unsigned int loopIndex=0;
+		while(loopIndex<lines.size() && intersects<2){
+			Vec4i Comp=lines[loopIndex];
+			
+			Vec2i a1=Vec2i(Main[0],Main[1]);
+			Vec2i a2=Vec2i(Main[2],Main[3]);
+			Vec2i b1=Vec2i(Comp[0],Comp[1]);
+			Vec2i b2=Vec2i(Comp[2],Comp[3]);
+			
+			Vec2i t1=(a2-a1)*error/norm(a2-a1)+a2;
+			Vec2i t2=a1-(a2-a1)*error/norm(a2-a1);
+			Vec2i c1=(b2-b1)*error/norm(b2-b1)+b2;
+			Vec2i c2=b1-(b2-b1)*error/norm(b2-b1);
+			
+			
+			Vec4i Merge=Vec4i(t1[0],t1[1],t2[0],t2[1]);
+			if(float((t2-t1)[0]*(c1-t1)[1]-(t2-t1)[1]*(c1-t1)[0])/((t2-t1)[0]*(c2-t1)[1]-(t2-t1)[1]*(c2-t1)[0])<0){
+				if(float((c2-c1)[0]*(t1-c1)[1]-(c2-c1)[1]*(t1-c1)[0])/((c2-c1)[0]*(t2-c1)[1]-(c2-c1)[1]*(t2-c1)[0])<0){
+					intersects++;
+					//Out.push_back(Merge);
+				}
+			}
+			loopIndex++;
+		}
+		if(intersects<2){
+			lineIndex++;
+		}
+		else{
+			Out.push_back(Main);
+			lines.erase(lineIndex+lines.begin());
+		}
+	}
+	int changes=1;
+	vector<Vec4i> temp;
+	while(changes>0){
+		changes=0;
+		lineIndex=0;
+		while(lineIndex<Out.size()){
+			int intersects=0;
+			Vec4i Main=Out[lineIndex];
+			unsigned int loopIndex=0;
+			while(loopIndex<lines.size()){
+				Vec4i Comp=lines[loopIndex];
+			
+				Vec2i a1=Vec2i(Main[0],Main[1]);
+				Vec2i a2=Vec2i(Main[2],Main[3]);
+				Vec2i b1=Vec2i(Comp[0],Comp[1]);
+				Vec2i b2=Vec2i(Comp[2],Comp[3]);
+			
+				Vec2i t1=(a2-a1)*error/norm(a2-a1)+a2;
+				Vec2i t2=a1-(a2-a1)*error/norm(a2-a1);
+				Vec2i c1=(b2-b1)*error/norm(b2-b1)+b2;
+				Vec2i c2=b1-(b2-b1)*error/norm(b2-b1);
+			
+			
+				Vec4i Merge=Vec4i(t1[0],t1[1],t2[0],t2[1]);
+				if(float((t2-t1)[0]*(c1-t1)[1]-(t2-t1)[1]*(c1-t1)[0])/((t2-t1)[0]*(c2-t1)[1]-(t2-t1)[1]*(c2-t1)[0])<0 && 
+				float((c2-c1)[0]*(t1-c1)[1]-(c2-c1)[1]*(t1-c1)[0])/((c2-c1)[0]*(t2-c1)[1]-(c2-c1)[1]*(t2-c1)[0])<0){
+					intersects++;
+					changes++;
+					Out.push_back(Comp);
+					lines.erase(loopIndex+lines.begin());
+					
+					//Out.push_back(Merge);
+					
+				}
+				else{
+					loopIndex++;
+				}
+			}
+			if(intersects<1){
+				lineIndex++;
+			}
+			else{
+				temp.push_back(Main);
+				Out.erase(lineIndex+Out.begin());
+			}
+		}
+		
+	
+	}
+	for(int i=0;i<temp.size();i++){
+		Out.push_back(temp[i]);
+	}
+	return Out;
+}
+vector<Vec4i> CullNonGoals(vector<Vec4i> lines, Vec2i p, float anglethreshold, int error){
+	vector<Vec4i> Out;
+	unsigned int lineIndex=0;
+	while(lineIndex<lines.size()){
+		Vec4i Main=lines[lineIndex];
+		Vec2i a1=Vec2i(Main[0],Main[1]);
+		Vec2i a2=Vec2i(Main[2],Main[3]);
+		if(abs(float((a2-a1).dot(p)))>anglethreshold*norm(a2-a1)*norm(p)){
+			Out.push_back(Main);
+		}
+		
+		lineIndex++;
+	}
+	vector<Vec4i> temp;
+	lineIndex=0;
+	while(lineIndex<Out.size()){
+		Vec4i Main=Out[lineIndex];
+		unsigned int loopIndex=0;
+		bool exit=0;
+		while(loopIndex<lines.size() && !exit){
+			Vec4i Comp=lines[loopIndex];
+			
+			Vec2i a1=Vec2i(Main[0],Main[1]);
+			Vec2i a2=Vec2i(Main[2],Main[3]);
+			Vec2i b1=Vec2i(Comp[0],Comp[1]);
+			Vec2i b2=Vec2i(Comp[2],Comp[3]);
+			
+			Vec2i t1=(a2-a1)*error/norm(a2-a1)+a2;
+			Vec2i t2=a1-(a2-a1)*error/norm(a2-a1);
+			Vec2i c1=(b2-b1)*error/norm(b2-b1)+b2;
+			Vec2i c2=b1-(b2-b1)*error/norm(b2-b1);
+			
+			
+			Vec4i Merge=Vec4i(t1[0],t1[1],t2[0],t2[1]);
+			if(float((t2-t1)[0]*(c1-t1)[1]-(t2-t1)[1]*(c1-t1)[0])/((t2-t1)[0]*(c2-t1)[1]-(t2-t1)[1]*(c2-t1)[0])<0 && 
+			float((c2-c1)[0]*(t1-c1)[1]-(c2-c1)[1]*(t1-c1)[0])/((c2-c1)[0]*(t2-c1)[1]-(c2-c1)[1]*(t2-c1)[0])<0){
+				unsigned int line2Index=lineIndex+1;
+				while(line2Index<Out.size() && !exit){
+					Vec4i Main2=Out[line2Index];
+					
+					Vec2i d1=Vec2i(Main2[0],Main2[1]);
+					Vec2i d2=Vec2i(Main2[2],Main2[3]);
+					Vec2i m1=(d2-d1)*error/norm(d2-d1)+d2;
+					Vec2i m2=d1-(d2-d1)*error/norm(d2-d1);
+					if(float((m2-m1)[0]*(c1-m1)[1]-(m2-m1)[1]*(c1-m1)[0])/((m2-m1)[0]*(c2-m1)[1]-(m2-m1)[1]*(c2-m1)[0])<0 && 
+					float((c2-c1)[0]*(m1-c1)[1]-(c2-c1)[1]*(m1-c1)[0])/((c2-c1)[0]*(m2-c1)[1]-(c2-c1)[1]*(m2-c1)[0])<0){
+						temp.push_back(Comp);
+						lines.erase(loopIndex+lines.begin());
+						exit=1;
+					}
+					
+					
+					line2Index++;
+				}
+				
+					//Out.push_back(Merge);
+					
+			}
+			loopIndex++;
+		}
+		lineIndex++;
+	
+	}
+	for(int i=0;i<temp.size();i++){
+		Out.push_back(temp[i]);
+	}
+	
+	return Out;
+}
 void process_blur(IplImage *img, char *type, struct timeval *t)
 {
     struct timeval start, end, diff;
@@ -136,119 +376,29 @@ void Hough(IplImage *img, struct timeval *t, int display){
     if(display || s>=0){
     	Mat cnt_img = Mat::zeros(copy.size(), CV_8UC3);
     	int size=lines.size();
-    	int maxsize=size;
     	for( size_t i = 0; i < lines.size(); i++ )
     	{
         	Vec4i l = lines[i];
-        	//line( cnt_img, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1,4);
+        	line( cnt_img, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1,4);
     	}
-    	int testline=0;
-    	int matches=0;
-    	while (testline<size){
-
-    		int loopline=0;
-    		while(loopline<size){
-    				Vec2i a1=Vec2i(lines[testline][0],lines[testline][1]);
-    				Vec2i a2=Vec2i(lines[testline][2],lines[testline][3]);
-    				size=lines.size();
-    				float theta=0;
-    				Vec2i b1=Vec2i(lines[loopline][0],lines[loopline][1]);
-    				Vec2i b2=Vec2i(lines[loopline][2],lines[loopline][3]);
-    				//line(cnt_img,Point(a1),Point(a2),Scalar(0,255,255),1,4);
-    				//line(cnt_img,Point(b1),Point(b2),Scalar(255,0,255),1,4);
-    				theta=abs(float((a2-a1).dot(b2-b1)));
-    				//printf("%g, %g\n",theta,0*(norm(a2-a1)*norm(b2-b1)));
-    				if(theta>0.95*(norm(a2-a1)*norm(b2-b1)) && loopline!=testline){
-    				
-    					float a2Distance=pow(norm(a2-b1),2)-pow(((a2-b1).dot(b2-b1)/norm(b2-b1)),2);
-    					//printf("%g, %g, %g, %g, %g\n",float((a2-b1).dot(b2-b1)),(a2-b1).dot(b2-b1)/norm(b2-b1),norm(b2-b1),norm(a2-b1),a2Distance);
-    					float a1Distance=pow(norm(a1-b1),2)-pow(((a1-b1).dot(b2-b1)/norm(b2-b1)),2);
-    					//printf("%g, %g\n",a2Distance,a1Distance);
-    					if(a2Distance<100*100 && a1Distance<100*100){
-    						
-    						matches+=1;
-    						Vec2i Bleep1Vector=float((b2-b1).dot(a1-b1))/norm(b2-b1)/norm(b2-b1)*(b2-b1);
-    						Vec2i Bleep2Vector=float((b2-b1).dot(a2-b1))/norm(b2-b1)/norm(b2-b1)*(b2-b1);
-    						
-    						Vec2i print1point=(a1-b1)-Bleep1Vector;
-    						Vec2i print2point=(a2-b1)-Bleep2Vector;
-    						//printpoint=printpoint*int(((b2-b1).dot(a1-b1))/norm(b2-b1)/norm(b2-b1));
-    						//printf("%g, %g, %g, %g\n",norm(print1point),norm(print2point),a1Distance,a2Distance);
-    						Vec2i merge1=(a1-b1)-print1point/2;
-    						//Point2f(((a1-b1)-a1Distance*(b2-b1)/norm(b2-b1))/2);
-    						Vec2i merge2=(a2-b1)-print2point/2;
-    						//line(cnt_img, Point(merge1),Point(merge2),Scalar(255,255,255),1,4);
-    						merge1=merge1+b1;
-    						merge2=merge2+b1;
-    						//line(cnt_img, Point(merge1),Point(merge2),Scalar(0,255,255),1,4);    						
-    						float maxdistance = (a2-merge1).dot(merge2-merge1)/norm(merge2-merge1);
-    						float mindistance = maxdistance;
-    						
-    						float testdistance = (a1-merge1).dot(merge2-merge1)/norm(merge2-merge1);
-    						printf("%f, %f, %f\n",testdistance,maxdistance,mindistance);
-    						if(testdistance<mindistance){
-    							mindistance=testdistance;
-    						}
-    						if(testdistance>maxdistance){
-    							maxdistance=testdistance;
-    						}
-    						testdistance = (b1-merge1).dot(merge2-merge1)/norm(merge2-merge1);
-    						printf("%f, %f, %f\n",testdistance,maxdistance,mindistance);
-    						if(testdistance<mindistance){
-    							mindistance=testdistance;
-    						}
-    						if(testdistance>maxdistance){
-    							maxdistance=testdistance;
-    						}
-    						testdistance = (b2-merge1).dot(merge2-merge1)/norm(merge2-merge1);
-    						printf("%f, %f, %f\n",testdistance,maxdistance,mindistance);
-    						if(testdistance<mindistance){
-    							mindistance=testdistance;
-    						}
-    						if(testdistance>maxdistance){
-    							maxdistance=testdistance;
-    						}
-    						printf("%f, %f, %f\n",testdistance,maxdistance,mindistance);
-    						Vec2i temppoint=(maxdistance/norm(merge2-merge1))*(merge2-merge1)+merge1;
-    						merge1=(mindistance/norm(merge2-merge1))*(merge2-merge1)+merge1;
-    						merge2=temppoint;
-    						
-    						//line(cnt_img, Point(merge1),Point(merge2),Scalar(255,0,float(loopline)/size*255),1,4);
-    						
-    						//Point2f(((a2-b1)-a2Distance*(b2-b1)/norm(b2-b1))/2);
-    						//printf("%g vs. %g\n",theta,0.9*norm(a2-a1)*(norm(b2-b1)));
-    						//printf("%f versus %f\n",merge2height,merge1height);
-    						//line(cnt_img, a1,b1,Scalar(255,0,0),1,4);
-    						//line(cnt_img, a2,b2,Scalar(0,255,0),1,4);
-    						printf("\n");
-    						Vec4i Out=Vec4i(merge1[0],merge1[1],merge2[0],merge2[1]);
-    						lines[testline]=Out;
-    						//if(loopline<testline){
-    						//	testline--;
-    						//}
-    						
-    						lines.erase(lines.begin()+loopline);
-    						/*
-    						if(display){
-    							char name[30];
-    							sprintf(name,"HoughLines%d,%d",testline,loopline);
-    							imshow(name, cnt_img);
-    							cnt_img=Mat::zeros(copy.size(), CV_8UC3);
-    						}
-    						*/
-
-    					}
-    					else{
-    						loopline++;
-    					}
-    				}
-    				else{
-    					loopline++;
-    				}
+    	int distance=10;
+    	float angle=.95;
+    	int gap=25;
+    	//while(lines.size()>=20){
+    		lines=CullLines(lines,angle,distance,10);
+    		/*
+    		for(int i=0;i<lines.size();i++){
+    			line(cnt_img,Point(lines[i][0],lines[i][1]),Point(lines[i][2],lines[i][3]),Scalar(255,0,0),3,4);
     		}
-    		testline++;
-    	}
-    	testline=0;
+    		*/
+    		lines=CullNonGoals(lines,Vec2i(0,1),.95,gap);
+    		
+    		distance++;
+    		angle-=.01;
+    		//gap--;
+    	//}
+    	int testline=0;
+    	size=lines.size();
     	while(testline<size){
     		Vec4i out=lines[testline];
     		line(cnt_img,Point(out[0],out[1]),Point(out[2],out[3]),Scalar(255,255,0),1,4);
@@ -258,7 +408,6 @@ void Hough(IplImage *img, struct timeval *t, int display){
     							imshow("HoughLines", cnt_img);
     							cnt_img=Mat::zeros(copy.size(), CV_8UC3);
     						}
-    	printf("%d Lines found, %d Matches found: \n", size,matches);
     	if (s>=0){
     		IplImage temp = cnt_img;
     	    cvSaveImage(vision_file_template(s, "Hough", "png"), &temp, 0);
