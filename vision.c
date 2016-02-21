@@ -34,7 +34,7 @@
 #include "image.h"
 
 //Woodshop filter { 0, 23, 0, 134, 0, 122 }
-filter_t g_color_filter = { 0, 255, 0, 160, 0, 112 };
+filter_t g_color_filter = { 128, 255, 0, 255, 64, 255 };
 
 /* 1 color for mono, 3 colors for rgb */
 int g_colors = 1;
@@ -96,6 +96,9 @@ typedef struct
 camera_default_t g_camera_defaults[] =
 {
     /* { "Brightness", -100 } */
+	{ "Exposure, Auto", 1},
+	{ "Exposure (Absolute)",1000}
+
 };
 
 
@@ -711,8 +714,10 @@ void process_one_image(IplImage *img)
     if (g_display)
         cvShowImage("Camera", img);
 
-    if (g_snap_next)
+    if (g_snap_next) {
         cvSaveImage(vision_file_template(g_snap, "initial", "png"), img, 0);
+        printf("Took snap %d\n", g_snap);
+    }
 
     if (g_blur)
     {
