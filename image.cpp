@@ -345,7 +345,7 @@ vector<vector<Vec4i> > FindGoals(vector<Vec4i> lines, Vec2i p, float anglethresh
 	printf("%d\n",Out.size());
 	return Out;
 }
-vector<vector<Vec4i> >ChooseBestGoals(vector<vector<Vec4i> > goals, float margin){
+vector<vector<Vec4i> >FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 	unsigned int i=0;
 	vector<vector<Vec4i> > Out;
 	while(i<goals.size()){
@@ -414,14 +414,74 @@ vector<vector<Vec4i> >ChooseBestGoals(vector<vector<Vec4i> > goals, float margin
 				edit[1]=1;
 			}
 		}
-		Vec2f temp=(s1p1-b1p1)-(s1p1-b1p1).dot(b1p2-b1p1)/(norm(b1p2-b1p1)*norm(b1p2-b1p1))*(b1p2-b1p1);
-		Vec2i i1=s1p1-(s1p1-s1p2)*norm(temp)/(abs(float((b1p1-b1p2)[1]*(s1p1-s1p2)[0]-(b1p1-b1p2)[0]*(s1p1-s1p2)[1]))/(norm(b1p1-b1p2)*norm(s1p1-s1p2)))/norm(s1p1-s1p2);
+		/*
+		Vec2f temp=-1*((s1p1-b1p1)-(s1p1-b1p1).dot(b1p2-b1p1)/(norm(b1p2-b1p1)*norm(b1p2-b1p1))*(b1p2-b1p1));
+		Vec2i i1=s1p1-(s1p1-s1p2)*norm(temp)/(float((b1p1-b1p2)[1]*(s1p1-s1p2)[0]-(b1p1-b1p2)[0]*(s1p1-s1p2)[1])/(norm(b1p1-b1p2)*norm(s1p1-s1p2)))/norm(s1p1-s1p2);
 		
 		Vec2f temp2=(s2p1-b1p1)-(s2p1-b1p1).dot(b1p2-b1p1)/(norm(b1p2-b1p1)*norm(b1p2-b1p1))*(b1p2-b1p1);
-		Vec2i i2=s2p1-(s2p1-s2p2)*norm(temp2)/(abs(float((b1p1-b1p2)[1]*(s2p1-s2p2)[0]-(b1p1-b1p2)[0]*(s2p1-s2p2)[1]))/(norm(b1p1-b1p2)*norm(s2p1-s2p2)))/norm(s2p1-s2p2);
-		
-		printf("%f,%f\n",temp2[0],temp2[1]);
+		Vec2i i2=s2p1-(s2p1-s2p2)*norm(temp2)/((float((b1p1-b1p2)[1]*(s2p1-s2p2)[0]-(b1p1-b1p2)[0]*(s2p1-s2p2)[1]))/(norm(b1p1-b1p2)*norm(s2p1-s2p2)))/norm(s2p1-s2p2);
+		*/
+		float i1x=((s1p1[0]*s1p2[1]-s1p1[1]*s1p2[0])*(b1p1[0]-b1p2[0])-(s1p1[0]-s1p2[0])*(b1p1[0]*b1p2[1]-b1p1[1]*b1p2[0]))/((s1p1[0]-s1p2[0])*(b1p1[1]-b1p2[1])-(s1p1[1]-s1p2[1])*(b1p1[0]-b1p2[0]));
+		float i1y=((s1p1[0]*s1p2[1]-s1p1[1]*s1p2[0])*(b1p1[1]-b1p2[1])-(s1p1[1]-s1p2[1])*(b1p1[0]*b1p2[1]-b1p1[1]*b1p2[0]))/((s1p1[0]-s1p2[0])*(b1p1[1]-b1p2[1])-(s1p1[1]-s1p2[1])*(b1p1[0]-b1p2[0]));
+		Vec2i i1=Vec2i(i1x,i1y);
+		float i2x=((s2p1[0]*s2p2[1]-s2p1[1]*s2p2[0])*(b1p1[0]-b1p2[0])-(s2p1[0]-s2p2[0])*(b1p1[0]*b1p2[1]-b1p1[1]*b1p2[0]))/((s2p1[0]-s2p2[0])*(b1p1[1]-b1p2[1])-(s2p1[1]-s2p2[1])*(b1p1[0]-b1p2[0]));
+		float i2y=((s2p1[0]*s2p2[1]-s2p1[1]*s2p2[0])*(b1p1[1]-b1p2[1])-(s2p1[1]-s2p2[1])*(b1p1[0]*b1p2[1]-b1p1[1]*b1p2[0]))/((s2p1[0]-s2p2[0])*(b1p1[1]-b1p2[1])-(s2p1[1]-s2p2[1])*(b1p1[0]-b1p2[0]));
+		Vec2i i2=Vec2i(i2x,i2y);
+		//printf("%d %d %d %d\n",i1[0],i1[1],i2[0],i2[1]);
+		//printf("%f,%f\n",temp2[0],temp2[1]);
 		i++;
+		if(norm(i1-s1p1)<=norm(i1-s1p2)){
+			if(norm(i1-s1p1)<=.1*norm(s1p1-s1p2)){
+				if(norm(i1-s1p2)<=norm(s1p1-s1p2)){
+					i1=s1p1;
+				}
+				else{
+					s1p1=i1;
+				}
+			}
+			else{
+				s1p1=i1;
+			}
+		}
+		else{
+			if(norm(i1-s1p2)<=.1*norm(s1p1-s1p2)){
+				if(norm(i1-s1p1)<=norm(s1p1-s1p2)){
+					i1=s1p2;
+				}
+				else{
+					s1p2=i1;
+				}
+			}
+			else{
+				s1p2=i1;
+			}
+		}
+		if(norm(i2-s2p1)<=norm(i2-s2p2)){
+			if(norm(i2-s2p1)<=.1*norm(s2p1-s2p2)){
+				if(norm(i2-s2p2)<=norm(s2p1-s2p2)){
+					i2=s2p1;
+				}
+				else{
+					s2p1=i2;
+				}
+			}
+			else{
+				s2p1=i2;
+			}
+		}
+		else{
+			if(norm(i2-s2p2)<=.1*norm(s2p1-s2p2)){
+				if(norm(i2-s2p1)<=norm(s2p1-s2p2)){
+					i2=s2p2;
+				}
+				else{
+					s2p2=i2;
+				}
+			}
+			else{
+				s2p2=i2;
+			}
+		}
 		vector<Vec4i> out;
 		out.push_back(Vec4i(s1p1[0],s1p1[1],s1p2[0],s1p2[1]));
 		out.push_back(Vec4i(i1[0],i1[1],i2[0],i2[1]));
@@ -431,7 +491,6 @@ vector<vector<Vec4i> >ChooseBestGoals(vector<vector<Vec4i> > goals, float margin
 	}
 	return Out;
 }
-
 
 void process_blur(IplImage *img, char *type, struct timeval *t)
 {
@@ -544,7 +603,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
         	Vec4i l = lines[i];
         	//line( cnt_img, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1,4);
     	}
-    	int distance=7;
+    	int distance=10;
     	float angle=.99;
     	int gap=10;
     	//while(lines.size()>=15){
@@ -578,12 +637,12 @@ void Hough(IplImage *img, struct timeval *t, int display){
     			line(cnt_img,Point(draw[0],draw[1]),Point(draw[2],draw[3]),Scalar(0,255,(255/goals.size())*i),1,4);
     		}
     	}
-    	goals = ChooseBestGoals(goals,.1);
+    	goals = FixUpGoals(goals,.1);
     	for(unsigned int i=0;i<goals.size();i++){
     		vector<Vec4i> onegoal=goals[i];
     		for(unsigned int j=0;j<onegoal.size();j++){
     			Vec4i draw=onegoal[j];
-    			printf("%d,%d,%d,%d\n",draw[0],draw[1],draw[2],draw[3]);
+    			//printf("%d,%d,%d,%d\n",draw[0],draw[1],draw[2],draw[3]);
     			line(cnt_img,Point(draw[0],draw[1]),Point(draw[2],draw[3]),Scalar(255,0,255),1,4);
     		}
     	}
