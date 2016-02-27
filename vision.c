@@ -35,8 +35,8 @@
 #include "socket.h"
 
 //Woodshop filter { 0, 23, 0, 134, 0, 122 }
-filter_t g_color_filter = //{ 0, 255, 0, 255, 0, 100 };
-{ 128, 255, 0, 255, 64, 255 };
+filter_t g_color_filter = { 0, 255, 0, 255, 0, 100 };
+//{ 128, 255, 0, 255, 64, 255 };
 
 /* 1 color for mono, 3 colors for rgb */
 int g_colors = 1;
