@@ -32,6 +32,7 @@
 
 #include "capture.h"
 #include "image.h"
+#include "socket.h"
 
 //Woodshop filter { 0, 23, 0, 134, 0, 122 }
 filter_t g_color_filter = //{ 0, 255, 0, 255, 0, 100 };
@@ -62,6 +63,7 @@ int g_snap = 1;
 
 char *g_blur_type = "gaussian";
 char *g_single;
+char *g_listen;
 
 long g_count = 0;
 
@@ -140,6 +142,13 @@ static int compute_size(long size, int *width, int *height)
     return -1;
 }
 
+static void report_info(int socket)
+{
+    char buf[256];
+    sprintf(buf, "Placeholder! %d\n", g_snap);
+    write(socket, buf, strlen(buf));
+}
+
 IplImage * vision_from_raw_file(char *filename)
 {
     void *raw_data = NULL;
@@ -196,6 +205,7 @@ static void usage(char *argv0)
     printf("%*.*s [--blur type] [--canny rate] [--contours xx] [--fast] [--sobel xxx] [--hough xxx]\n", (int) strlen(argv0), (int) strlen(argv0), "");
     printf("%*.*s [--no-filter] [--filter]\n", (int) strlen(argv0), (int) strlen(argv0), "");
     printf("%*.*s [--single filename]\n", (int) strlen(argv0), (int) strlen(argv0), "");
+    printf("%*.*s [--listen host:port]\n", (int) strlen(argv0), (int) strlen(argv0), "");
 }
 
 static int parse_arguments(int argc, char *argv[])
@@ -218,6 +228,7 @@ static int parse_arguments(int argc, char *argv[])
         {"fast",    no_argument,       0,  's' },
         {"hough", required_argument, 0, '2' },
         {"single", required_argument, 0, 'i' },
+        {"listen", required_argument, 0, 'l' },
         {0,         0,                 0,  0 }
     };
 
@@ -257,6 +268,10 @@ static int parse_arguments(int argc, char *argv[])
 
             case 'i':
                 g_single = strdup(optarg);
+                break;
+
+            case 'l':
+                g_listen = strdup(optarg);
                 break;
 
             case 'b':
@@ -763,6 +778,11 @@ int vision_main(int argc, char *argv[])
 
     if (parse_arguments(argc, argv))
         return -1;
+
+    if (g_listen) {
+        if (socket_start(g_listen, report_info))
+            return -1;
+    }
 
     if (g_single) {
         IplImage *img;

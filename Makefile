@@ -1,13 +1,17 @@
 ARCH = $(shell uname -m)
 
 CFLAGS=-g -Wall `pkg-config --cflags opencv libv4l2`
-LDFLAGS=`pkg-config --libs opencv libv4l2`
+LDFLAGS=`pkg-config --libs opencv libv4l2` -lpthread
 OBJS=\
     capture-$(ARCH).o \
     image-$(ARCH).o \
+    socket-$(ARCH).o \
     vision-$(ARCH).o
 
 all: vision-$(ARCH)
+
+socket-$(ARCH).o: socket.c socket.h vision.h Makefile
+	gcc -c $(CFLAGS) -o $@ $<
 
 capture-$(ARCH).o: capture.c capture.h vision.h Makefile
 	gcc -c $(CFLAGS) -o $@ $<
