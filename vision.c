@@ -199,11 +199,9 @@ static int compute_size(long size, int *width, int *height)
     return -1;
 }
 
-static void report_info(int socket)
+static void report_info(int s, char *buf, int len, void *from, int from_len)
 {
-    char buf[256];
-    sprintf(buf, "Placeholder! %d\n", g_snap);
-    write(socket, buf, strlen(buf));
+    printf("Got '%*.*s'\n", len, len, buf);
 }
 
 IplImage * vision_from_raw_file(char *filename)

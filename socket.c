@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------
-* socket.c - Sub routines to provide data via a tcp socket.
+* socket.c - Sub routines to provide data via a udp socket.
 * -------------------------------------------------------------------------
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -30,27 +30,27 @@
 struct callback_info
 {
     int s;
-    int (*callback)(int socket);
+    int (*callback)(int s, char *buf, int len, void *from, int from_len);
 };
 
 static void main_listen_thread(void *info)
 {
     struct callback_info *cb = (struct callback_info *) info;
-    struct sockaddr_in client;
-    int ns;
-    socklen_t namelen;
+    char buf[4096];
+    int rc;
+    struct sockaddr_in si_other;
+    socklen_t slen = sizeof(si_other);
 
     while (1)
     {
-        if ((ns = accept(cb->s, (struct sockaddr *)&client, &namelen)) == -1)
-        {
-            perror("Accept()");
+        rc = recvfrom(cb->s, buf, sizeof(buf), 0, (struct sockaddr *) &si_other, &slen);
+        if (rc == -1)
             break;
-        }
 
-        cb->callback(ns);
-        close(ns);
+        cb->callback(cb->s, buf, rc, &si_other, slen);
     }
+
+    close(cb->s);
 
 }
 
@@ -92,9 +92,9 @@ int socket_start(char *hostport, void *callback)
 
     server.sin_family      = AF_INET;
     server.sin_port        = htons(port);
-    server.sin_addr.s_addr = *((unsigned long *)hostnm->h_addr);
+    server.sin_addr.s_addr =  htonl(INADDR_ANY);
 
-    if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
     {
         perror("Socket()");
         return -2;
@@ -107,12 +107,6 @@ int socket_start(char *hostport, void *callback)
     {
        perror("Bind()");
        return -3;
-    }
-
-    if (listen(s, 10) != 0)
-    {
-        perror("Listen()");
-        return -4;
     }
 
     cb.s = s;
