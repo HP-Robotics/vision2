@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-int socket_start(char *hostport, void *callback);
+int socket_start(int port, void *callback);
 
 #if defined(__cplusplus)
 };

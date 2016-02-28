@@ -862,7 +862,7 @@ int vision_main(int argc, char *argv[])
         return -1;
 
     if (g_listen) {
-        if (socket_start(g_listen, report_info))
+        if (socket_start(atoi(g_listen), report_info))
             return -1;
     }
 

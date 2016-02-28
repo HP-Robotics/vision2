@@ -58,38 +58,15 @@ static void main_listen_thread(void *info)
 
 static pthread_t thread;
 
-int socket_start(char *hostport, void *callback)
+int socket_start(int port, void *callback)
 {
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-    int port;
-    char listen_as[1024];
-    struct hostent *hostnm;
     struct sockaddr_in server;
     int s;
     static struct callback_info cb;
     int optval;
-    char *p;
-
-
-    strcpy(listen_as, hostport);
-    p = strchr(listen_as, ':');
-    if (!p)
-    {
-        fprintf(stderr, "Error: '%s' could not be parsed for host:port\n", hostport);
-        return -1;
-    }
-    *p = '\0';
-    port = atoi(p+1);
      
-
-    /* Pick up 'our' host name and therefore our address for the bind() */
-    hostnm = (struct hostent *) gethostbyname(listen_as);
-    if (hostnm == (struct hostent *) 0)
-    {
-        fprintf(stderr, "Gethostbyname of '%s' failed\n", listen_as);
-        return -1;
-    }
 
     server.sin_family      = AF_INET;
     server.sin_port        = htons(port);
