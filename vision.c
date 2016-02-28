@@ -22,6 +22,7 @@
 #include <sys/time.h>
 #include <termios.h>
 #include <sched.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -67,6 +68,12 @@ char *g_single;
 char *g_listen;
 char *g_streaming;
 int g_stream_count = 0;
+
+char *g_watching;
+char g_watch_this_dir[1024];
+int g_watch_count = 0;
+time_t g_watch_until = 0;
+static void stop_watching(void);
 
 long g_count = 0;
 
@@ -150,6 +157,28 @@ static void save_images(capture_t *c, void *raw)
         cvTranspose(img, rotated);
         cvFlip(rotated, NULL, 1);
 
+        if (g_watching && time(NULL) < g_watch_until)
+        {
+            FILE *fp;
+
+            g_watch_count++;
+
+            sprintf(fname, "%s/img%05d.png", g_watch_this_dir, g_watch_count);
+            cvSaveImage(fname, rotated, NULL);
+
+            sprintf(fname, "%s/raw/img%05d.yuv.raw", g_watch_this_dir, g_watch_count);
+            fp = fopen(fname, "w");
+            if (fp)
+            {
+                fwrite(raw, 1, c->width * c->height * 2, fp);
+                fclose(fp);
+            }
+
+        }
+        else if (g_watching && g_watch_count > 0)
+            stop_watching();
+
+
         g_stream_count = (g_stream_count + 1) % 20;
         sprintf(fname, "%s/img%03d.jpg", g_streaming, g_stream_count);
 
@@ -218,12 +247,62 @@ static int compute_size(long size, int *width, int *height)
     return -1;
 }
 
+
+static void start_watching(void)
+{
+    char tbuf[1024];
+    char *p;
+    time_t t = time(NULL);
+    mkdir(g_watching, 0755);
+
+    strcpy(tbuf, ctime(&t));
+    for (p = tbuf; *p; p++)
+        if (*p == ' ')
+            *p = '.';
+        else if (*p == '\n')
+            *p = 0;
+
+    sprintf(g_watch_this_dir, "%s/%04d.%s", g_watching, g_rpm, tbuf);
+    mkdir(g_watch_this_dir, 0755);
+
+    sprintf(tbuf, "%s/raw", g_watch_this_dir);
+    mkdir(tbuf, 0755);
+
+    g_watch_count = 0;
+    g_watch_until = time(NULL) + 3;
+}
+
+static void stop_watching(void)
+{
+    char fname[1024];
+    FILE *fp;
+    int i;
+
+    sprintf(fname, "%s/index.html", g_watch_this_dir);
+    fp = fopen(fname, "w");
+    if (fp)
+    {
+        fprintf(fp, "<html><body><h1>%s</h1>\n", g_watch_this_dir);
+        for (i = 1; i <= g_watch_count; i++)
+        {
+            fprintf(fp, "<p>Image %d:<br><img src=\"img%05d.png\"></p>\n", i, i);
+        }
+        fprintf(fp, "</body></html>\n");
+        fclose(fp);
+    }
+    g_watch_count = 0;
+    g_watch_until = 0;    
+}
+
+
 // Our caller guarantees us a null terminator...
 static void report_info(int s, char *buf, int len, void *from, int from_len)
 {
     printf("Got '%s'\n", buf);
     if (len > 4 && memcmp(buf, "RPM ", 4) == 0)
         g_rpm = atoi(buf + 4);
+    if (g_watching && len >= 5 && memcmp(buf, "WATCH", 5) == 0)
+        start_watching();
 }
 
 IplImage * vision_from_raw_file(char *filename)
@@ -307,13 +386,14 @@ static int parse_arguments(int argc, char *argv[])
         {"single", required_argument, 0, 'i' },
         {"listen", required_argument, 0, 'l' },
         {"streaming", required_argument, 0, '3' },
+        {"watch", required_argument, 0, '4' },
         {0,         0,                 0,  0 }
     };
 
     while (1)
     {
         int option_index = 0;
-        c = getopt_long(argc, argv, "dcTtf:w:h:b:a:1:z:s:2:3:i:", long_options, &option_index);
+        c = getopt_long(argc, argv, "dcTtf:w:h:b:a:1:z:s:2:3:4:i:", long_options, &option_index);
         switch(c)
         {
             case 'd':
@@ -354,6 +434,10 @@ static int parse_arguments(int argc, char *argv[])
 
             case '3':
                 g_streaming = strdup(optarg);
+                break;
+
+            case '4':
+                g_watching = strdup(optarg);
                 break;
 
             case 'b':
