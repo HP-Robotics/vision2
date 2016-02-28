@@ -387,13 +387,14 @@ static int parse_arguments(int argc, char *argv[])
         {"listen", required_argument, 0, 'l' },
         {"streaming", required_argument, 0, '3' },
         {"watch", required_argument, 0, '4' },
+        {"simple",    no_argument,       0,  '0' },
         {0,         0,                 0,  0 }
     };
 
     while (1)
     {
         int option_index = 0;
-        c = getopt_long(argc, argv, "dcTtf:w:h:b:a:1:z:s:2:3:4:i:", long_options, &option_index);
+        c = getopt_long(argc, argv, "0dcTtf:w:h:b:a:1:z:s:2:3:4:i:", long_options, &option_index);
         switch(c)
         {
             case 'd':
@@ -434,6 +435,10 @@ static int parse_arguments(int argc, char *argv[])
 
             case '3':
                 g_streaming = strdup(optarg);
+                break;
+
+            case '0':
+                g_blur = g_filter = g_canny = g_hough = 0;
                 break;
 
             case '4':
