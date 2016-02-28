@@ -70,6 +70,8 @@ int g_stream_count = 0;
 
 long g_count = 0;
 
+int g_rpm = 3300;
+
 capture_t g_cam;
 
 struct timeval g_total_retrieve_time;
@@ -108,6 +110,20 @@ camera_default_t g_camera_defaults[] =
 };
 
 
+static void compute_reticle(int *x, int *y)
+{
+    if (g_rpm == 3300)
+    {
+        *x = 200;
+        *y = 400;
+    }
+    else
+    {
+        *x = 250;
+        *y = 450;
+    }
+}
+
 /* Processing for stream to driver, saving shots */
 static void save_images(capture_t *c, void *raw)
 {
@@ -123,9 +139,12 @@ static void save_images(capture_t *c, void *raw)
         IplImage *rotated;
         char fname[1024];
         int radius = 20;
-        int x = 240;
-        int y = 320;
+        int x, y;
+
+        compute_reticle(&x, &y);
         CvScalar black = cvScalar(0,0,0,0);
+
+        compute_reticle(&x, &y);
 
         rotated = cvCreateImage(cvSize(img->height, img->width), img->depth, img->nChannels);
         cvTranspose(img, rotated);
@@ -199,9 +218,12 @@ static int compute_size(long size, int *width, int *height)
     return -1;
 }
 
+// Our caller guarantees us a null terminator...
 static void report_info(int s, char *buf, int len, void *from, int from_len)
 {
-    printf("Got '%*.*s'\n", len, len, buf);
+    printf("Got '%s'\n", buf);
+    if (len > 4 && memcmp(buf, "RPM ", 4) == 0)
+        g_rpm = atoi(buf + 4);
 }
 
 IplImage * vision_from_raw_file(char *filename)

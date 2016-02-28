@@ -43,7 +43,8 @@ static void main_listen_thread(void *info)
 
     while (1)
     {
-        rc = recvfrom(cb->s, buf, sizeof(buf), 0, (struct sockaddr *) &si_other, &slen);
+        memset(buf, 0, sizeof(buf));
+        rc = recvfrom(cb->s, buf, sizeof(buf) - 1, 0, (struct sockaddr *) &si_other, &slen);
         if (rc == -1)
             break;
 
