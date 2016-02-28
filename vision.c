@@ -63,7 +63,10 @@ int g_snap = 1;
 
 char *g_blur_type = "gaussian";
 char *g_single;
+
 char *g_listen;
+char *g_streaming;
+int g_stream_count = 0;
 
 long g_count = 0;
 
@@ -105,16 +108,70 @@ camera_default_t g_camera_defaults[] =
 };
 
 
+/* Processing for stream to driver, saving shots */
+static void save_images(capture_t *c, void *raw)
+{
+    IplImage *img = NULL;
+    void *data = NULL;
+    img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
+    data = calloc(1, c->width * c->height * g_colors);
+    capture_yuv_to_rgb(raw, data, c->width, c->height, g_colors, NULL);
+    cvSetData(img, data, c->width * g_colors);
+
+    if (g_streaming)
+    {
+        IplImage *rotated;
+        char fname[1024];
+        int radius = 20;
+        int x = 240;
+        int y = 320;
+        CvScalar black = cvScalar(0,0,0,0);
+
+        rotated = cvCreateImage(cvSize(img->height, img->width), img->depth, img->nChannels);
+        cvTranspose(img, rotated);
+        cvFlip(rotated, NULL, 1);
+
+        g_stream_count = (g_stream_count + 1) % 20;
+        sprintf(fname, "%s/img%03d.jpg", g_streaming, g_stream_count);
+
+        cvCircle(rotated, cvPoint(x,y), radius, black, 2, 8, 0);
+        cvLine(rotated, cvPoint(x, y - radius), cvPoint(x, y - radius - radius*2), black, 2,8,0);
+        cvLine(rotated, cvPoint(x, y + radius), cvPoint(x, y + radius + radius*2), black, 2,8,0);
+        cvLine(rotated, cvPoint(x - radius, y), cvPoint(x - radius - radius * 2, y), black, 2,8,0);
+        cvLine(rotated, cvPoint(x + radius, y), cvPoint(x + radius + radius * 2, y), black, 2,8,0);
+
+        cvSaveImage(fname, rotated, NULL);
+        cvReleaseImage(&rotated);
+    }
+    /* JPW TODO - Save to /var/www/html/shots for a period of time */
+    free(data);
+    cvReleaseImageHeader(&img);
+}
 
 static IplImage *vision_retrieve(capture_t *c)
 {
     void *i;
+    void *data;
     IplImage *img = NULL;
-    i = capture_retrieve(c, g_colors, g_filter ? &g_color_filter : NULL);
+    filter_t *filter = g_filter ? &g_color_filter : NULL;
+
+    i = capture_retrieve(c, g_colors, NULL, 1);
     if (i)
     {
+        save_images(c, i);
+
         img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
-        cvSetData(img, i, c->width * g_colors);
+        data = calloc(1, c->width * c->height * g_colors);
+        if (capture_yuv_to_rgb(i, data, c->width, c->height, g_colors, filter))
+        {
+            fprintf(stderr, "Unexpected conversion error\n");
+            free(i);
+            free(data);
+            return NULL;
+        }
+        free(i);
+
+        cvSetData(img, data, c->width * g_colors);
     }
     else
         fprintf(stderr, "Unexpected retrieve error\n");
@@ -229,13 +286,14 @@ static int parse_arguments(int argc, char *argv[])
         {"hough", required_argument, 0, '2' },
         {"single", required_argument, 0, 'i' },
         {"listen", required_argument, 0, 'l' },
+        {"streaming", required_argument, 0, '3' },
         {0,         0,                 0,  0 }
     };
 
     while (1)
     {
         int option_index = 0;
-        c = getopt_long(argc, argv, "dcTtf:w:h:b:a:1:z:s:2:i:", long_options, &option_index);
+        c = getopt_long(argc, argv, "dcTtf:w:h:b:a:1:z:s:2:3:i:", long_options, &option_index);
         switch(c)
         {
             case 'd':
@@ -272,6 +330,10 @@ static int parse_arguments(int argc, char *argv[])
 
             case 'l':
                 g_listen = strdup(optarg);
+                break;
+
+            case '3':
+                g_streaming = strdup(optarg);
                 break;
 
             case 'b':

@@ -451,7 +451,7 @@ int capture_clear(capture_t *c1, capture_t *c2, int threshold)
 }
 
 
-void * capture_retrieve(capture_t *c, int bytes, filter_t *filter)
+void * capture_retrieve(capture_t *c, int bytes, filter_t *filter, int raw)
 {
     void *data = NULL;
     int s;
@@ -469,8 +469,14 @@ void * capture_retrieve(capture_t *c, int bytes, filter_t *filter)
     }
 
 
-    data = calloc(1, c->width * c->height * bytes);
+    if (raw)
+    {
+        data = calloc(1, c->width * c->height * 2);
+        memcpy(data, c->last_frame_ptr, c->width * c->height * 2);
+        return data;
+    }
 
+    data = calloc(1, c->width * c->height * bytes);
     if (bytes == 3)
     {
         yuyv_to_rgb24 (c->last_frame_ptr, data, c->width, c->height, filter);
