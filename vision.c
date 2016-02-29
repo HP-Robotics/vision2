@@ -121,13 +121,18 @@ static void compute_reticle(int *x, int *y)
 {
     if (g_rpm == 3300)
     {
-        *x = 200;
-        *y = 400;
+        *x = 229;
+        *y = 447;
     }
-    else
+    else if (g_rpm == 3200)
     {
-        *x = 250;
-        *y = 450;
+        *x = 221;
+        *y = 324;
+    }
+    else if (g_rpm == 3900)
+    {
+        *x = 210;
+        *y = 163;
     }
 }
 
@@ -719,8 +724,15 @@ static int getch(void)
     unsigned char c;
 
     fflush(stdout);
-    if (tcgetattr(0, &t) < 0)
+    if (tcgetattr(0, &t) < 0) {
+        static int warned = 0;
+        if (! warned)
+        {
+            perror("tcgetattr");
+            warned++;
+        }
         return -2;
+    }
 
     t.c_lflag &= ~(ICANON|ECHO);
     t.c_cc[VMIN] = 0;
@@ -1002,7 +1014,8 @@ int vision_main(int argc, char *argv[])
         if (c == 'q' || c == 27)
             break;
 
-        process_key(c, &g_color_filter);
+        if (c > 0)
+            process_key(c, &g_color_filter);
 
         gettimeofday(&start, NULL);
         if (capture_grab(&g_cam) > 0)
