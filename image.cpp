@@ -24,11 +24,61 @@
 #include "opencv2/imgproc/imgproc.hpp"
 
 #include "opencv2/features2d/features2d.hpp"
+#include "opencv2/calib3d/calib3d.hpp"
 
 #include "image.h"
 #include "vision.h"
 
+
 using namespace cv;
+Vec6f GivePos(vector<Point2f> imagePoints){
+	vector<Point3f> objectPoints;
+	objectPoints.push_back(Point3f(0,0,0));
+	objectPoints.push_back(Point3f(14,0,0));
+	objectPoints.push_back(Point3f(14,20,0));
+	objectPoints.push_back(Point3f(0,20,0));
+
+    Mat cameraMatrix(3,3,DataType<double>::type);
+    cameraMatrix.at<double>(0,0) = 6.6460611429610833e+02;
+    cameraMatrix.at<double>(0,1) = 0;
+	cameraMatrix.at<double>(0,2) = 3.1950000000000000e+02;
+    cameraMatrix.at<double>(1,0) = 0;
+    cameraMatrix.at<double>(1,1) = 6.6460611429610833e+02;
+    cameraMatrix.at<double>(1,2) = 2.3950000000000000e+02;
+    cameraMatrix.at<double>(2,0) = 0;
+	cameraMatrix.at<double>(2,1) = 0;
+	cameraMatrix.at<double>(2,2) = 1;
+
+    Mat distCoeffs(5,1,cv::DataType<double>::type);
+    distCoeffs.at<double>(0) = 1.1053343399362968e-01;
+    distCoeffs.at<double>(1) = -9.0195113632788571e-01;
+    distCoeffs.at<double>(2) = -4.4370054672551659e-03;
+    distCoeffs.at<double>(3) = -7.7107888138698939e-03;
+    distCoeffs.at<double>(4) = 1.6344276379725158e+00;
+	cv::Mat rvec(3,1,cv::DataType<double>::type);
+    cv::Mat tvec(3,1,cv::DataType<double>::type);
+    cv::solvePnP(objectPoints, imagePoints, cameraMatrix, distCoeffs, rvec, tvec);
+    Mat rotMatrix(3,3,DataType<double>::type);
+    cv::Rodrigues(rvec,rotMatrix);
+    Mat outMatrix(4,4,DataType<double>::type);
+    outMatrix=Mat::zeros(4,4,DataType<double>::type);
+    outMatrix.at<double>(0,0)=rotMatrix.at<double>(0,0);
+    outMatrix.at<double>(0,1)=rotMatrix.at<double>(0,1);
+    outMatrix.at<double>(0,2)=rotMatrix.at<double>(0,2);
+    outMatrix.at<double>(1,0)=rotMatrix.at<double>(1,0);
+    outMatrix.at<double>(1,1)=rotMatrix.at<double>(1,1);
+    outMatrix.at<double>(1,2)=rotMatrix.at<double>(1,2);
+    outMatrix.at<double>(2,0)=rotMatrix.at<double>(2,0);
+    outMatrix.at<double>(2,1)=rotMatrix.at<double>(2,1);
+    outMatrix.at<double>(2,2)=rotMatrix.at<double>(2,2);
+    outMatrix.at<double>(3,0)=tvec.at<double>(0);
+    outMatrix.at<double>(3,1)=tvec.at<double>(1);
+    outMatrix.at<double>(3,2)=tvec.at<double>(2);
+    outMatrix.at<double>(3,3)=1;
+    outMatrix=outMatrix.t();
+    outMatrix=outMatrix.inv();
+	return Vec6f(outMatrix.at<double>(0,3),outMatrix.at<double>(1,3),outMatrix.at<double>(2,3),tvec.at<double>(0),tvec.at<double>(1),tvec.at<double>(2));
+}
 vector<Vec4i> CullLines(vector<Vec4i> lines, float angle,int distance, int gap){
 		int size=lines.size();
     	int testline=0;
@@ -89,7 +139,7 @@ vector<Vec4i> CullLines(vector<Vec4i> lines, float angle,int distance, int gap){
     						//printf("\n");
     						Vec4i Out=Vec4i(merge1[0],merge1[1],merge2[0],merge2[1]);
     						lines[testline]=Out;
-    						printf("Replacing line #%d. Deleting line #%d\n",testline,loopline);
+    						printf("Replacing line #%u. Deleting line #%u\n",testline,loopline);
     						lines.erase(lines.begin()+loopline);
     						size=lines.size();
     						loopline--;
@@ -340,12 +390,14 @@ vector<vector<Vec4i> > FindGoals(vector<Vec4i> lines, Vec2i p, float anglethresh
 		Out.push_back(temp[i]);
 	}
 	*/
-	printf("%d\n",Out.size());
+	printf("%u\n",Out.size());
 	return Out;
 }
-vector<vector<Vec4i> >FixUpGoals(vector<vector<Vec4i> > goals, float margin){
+vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 	unsigned int i=0;
 	vector<vector<Vec4i> > Out;
+	vector<Vec8i> Out2;
+	Vec8i whee;
 	while(i<goals.size()){
 		//printf("hi\n");
 	
@@ -433,14 +485,21 @@ vector<vector<Vec4i> >FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 			if(norm(i1-s1p1)<=margin*norm(s1p1-s1p2)){
 				if(norm(i1-s1p2)<=norm(s1p1-s1p2)){
 					i1=s1p1;
+					
 				}
 				else{
 					s1p1=i1;
 				}
+				
 			}
 			else{
 				s1p1=i1;
+
 			}
+			whee[2]=i1[0];
+			whee[3]=i1[1];
+			whee[0]=s1p2[0];
+			whee[1]=s1p2[1];
 		}
 		else{
 			if(norm(i1-s1p2)<=margin*norm(s1p1-s1p2)){
@@ -453,7 +512,12 @@ vector<vector<Vec4i> >FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 			}
 			else{
 				s1p2=i1;
+				
 			}
+			whee[2]=i1[0];
+			whee[3]=i1[1];
+			whee[0]=s1p1[0];
+			whee[1]=s1p1[1];
 		}
 		if(norm(i2-s2p1)<=norm(i2-s2p2)){
 			if(norm(i2-s2p1)<=margin*norm(s2p1-s2p2)){
@@ -467,6 +531,10 @@ vector<vector<Vec4i> >FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 			else{
 				s2p1=i2;
 			}
+			whee[4]=i2[0];
+			whee[5]=i2[1];
+			whee[6]=s2p2[0];
+			whee[7]=s2p2[1];
 		}
 		else{
 			if(norm(i2-s2p2)<=margin*norm(s2p1-s2p2)){
@@ -480,6 +548,10 @@ vector<vector<Vec4i> >FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 			else{
 				s2p2=i2;
 			}
+			whee[4]=i2[0];
+			whee[5]=i2[1];
+			whee[6]=s2p1[0];
+			whee[7]=s2p1[1];
 		}
 		
 		vector<Vec4i> out;
@@ -487,11 +559,31 @@ vector<vector<Vec4i> >FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 		out.push_back(Vec4i(i1[0],i1[1],i2[0],i2[1]));
 		out.push_back(Vec4i(s2p1[0],s2p1[1],s2p2[0],s2p2[1]));
 		Out.push_back(out);
+		Out2.push_back(whee);
 		out.clear();
 	}
-	return Out;
+	return Out2;
 }
-
+vector<vector<Vec4i> >PrioritizeGoals(vector<vector<Vec4i> > goals){
+	int goalLoop=0;
+	while(goalLoop<goals.size()){
+		Vec4i Side1=goals[goalLoop][0];
+		Vec4i Side2=goals[goalLoop][2];
+		Vec4i Base=goals[goalLoop][1];
+		Vec2i s1p1=Vec2i(Side1[0],Side1[1]);
+		Vec2i s1p2=Vec2i(Side1[2],Side1[3]);
+		Vec2i s2p1=Vec2i(Side2[0],Side1[1]);
+		Vec2i s2p2=Vec2i(Side2[2],Side1[3]);
+		Vec2i bp1=Vec2i(Base[0],Base[1]);
+		Vec2i bp2=Vec2i(Base[2],Base[3]);
+		if(max(norm(s1p1-s1p2),norm(s2p1-s2p2))>0.7*norm(bp1-bp1)){
+			printf("Good!\n");
+		}
+		
+		goalLoop++;
+	}
+	return goals;
+}
 void process_blur(IplImage *img, char *type, struct timeval *t)
 {
     struct timeval start, end, diff;
@@ -577,6 +669,9 @@ void find_contours(IplImage *img, struct timeval *t, int display, int level)
         //if (s >= 0)
         //    cvSaveImage(vision_file_template(s, "canny", "png"), cnt_img, 0);
     }
+    gettimeofday(&end, NULL);
+    timersub(&end, &start, &diff);
+    timeradd(t, &diff, t);
 
 }
 void Hough(IplImage *img, struct timeval *t, int display){
@@ -610,13 +705,13 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	//while(lines.size()>=15){
     		lines=CullLines(lines,angle,distance,10);
     		//lines=CullLines(lines,angle,distance,10);
-    		printf("end lines:%d\n",lines.size());
-    		for(int i=0;i<lines.size();i++){
+    		printf("end lines:%lu\n",lines.size());
+    		for(unsigned int i=0;i<lines.size();i++){
     			//line(cnt_img,Point(lines[i][0],lines[i][1]),Point(lines[i][2],lines[i][3]),Scalar(0,255,0),3,4);
     		}
     		
     		lines=CullNonGoals(lines,Vec2i(1,0),.95,gap);
-    		for(int i=0;i<lines.size();i++){
+    		for(unsigned int i=0;i<lines.size();i++){
     			line(cnt_img,Point(lines[i][0],lines[i][1]),Point(lines[i][2],lines[i][3]),Scalar(255,255,0),1,4);
     		}
     		lines=GetGoals(lines,gap);
@@ -625,7 +720,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     		//gap--;
     	//}
     	vector<vector<Vec4i> > goals = FindGoals(lines,Vec2i(1,0),.95,gap);
-    	printf("%d\n",goals.size());
+    	printf("%lu\n",goals.size());
     	
     	int testline=0;
     	size=lines.size();
@@ -644,7 +739,8 @@ void Hough(IplImage *img, struct timeval *t, int display){
     		}
     	}
     	*/
-    	goals = FixUpGoals(goals,.2);
+    	vector<Vec8i> finalgoals;
+    	finalgoals = FixUpGoals(goals,.1);
     	for(unsigned int i=0;i<goals.size();i++){
     		vector<Vec4i> onegoal=goals[i];
     		for(unsigned int j=0;j<onegoal.size();j++){
@@ -653,6 +749,18 @@ void Hough(IplImage *img, struct timeval *t, int display){
     			line(cnt_img,Point(draw[0],draw[1]),Point(draw[2],draw[3]),Scalar(255,255,255),1,4);
     		}
     	}
+		for(unsigned int i=0;i<finalgoals.size();i++){
+			Vec8i onegoal=finalgoals[i];
+			vector<Point2f> imagePoints;
+			imagePoints.push_back(Point2f(onegoal[0],onegoal[1]));
+			imagePoints.push_back(Point2f(onegoal[2],onegoal[3]));
+			imagePoints.push_back(Point2f(onegoal[4],onegoal[5]));
+			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
+			Vec6f GOOOOOAAAAAAALLLLLL=GivePos(imagePoints);
+			printf("WOOOO!: %f, %f, %f \n",GOOOOOAAAAAAALLLLLL[0],GOOOOOAAAAAAALLLLLL[1],GOOOOOAAAAAAALLLLLL[2]);
+		
+		}
+    	//PrioritizeGoals(goals);
     	if(display){
     							imshow("HoughLines", cnt_img);
     							cnt_img=Mat::zeros(copy.size(), CV_8UC3);
