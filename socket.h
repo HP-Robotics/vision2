@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 int socket_start(int port, void *callback);
+int socket_send_message(char *buf, int len);
 
 #if defined(__cplusplus)
 };

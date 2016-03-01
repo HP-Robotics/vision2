@@ -33,13 +33,15 @@ struct callback_info
     int (*callback)(int s, char *buf, int len, void *from, int from_len);
 };
 
+struct sockaddr_in si_other;
+socklen_t slen = sizeof(struct sockaddr_in);
+int socket_heard_from = -1;
+
 static void main_listen_thread(void *info)
 {
     struct callback_info *cb = (struct callback_info *) info;
     char buf[4096];
     int rc;
-    struct sockaddr_in si_other;
-    socklen_t slen = sizeof(si_other);
 
     while (1)
     {
@@ -49,10 +51,20 @@ static void main_listen_thread(void *info)
             break;
 
         cb->callback(cb->s, buf, rc, &si_other, slen);
+        socket_heard_from = cb->s;
     }
 
     close(cb->s);
 
+}
+
+
+int socket_send_message(char *buf, int len)
+{
+    if (socket_heard_from == -1)
+        return -1;
+
+    return sendto(socket_heard_from, buf, len, MSG_DONTWAIT, (struct sockaddr *) &si_other, slen);
 }
 
 
