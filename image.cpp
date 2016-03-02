@@ -31,6 +31,7 @@
 
 
 using namespace cv;
+Vec6f Average=Vec6f(0,0,0,0,0,0);
 Vec6f GivePos(vector<Point2f> imagePoints){
 	vector<Point3f> objectPoints;
 	objectPoints.push_back(Point3f(0,0,0));
@@ -139,7 +140,7 @@ vector<Vec4i> CullLines(vector<Vec4i> lines, float angle,int distance, int gap){
     						//printf("\n");
     						Vec4i Out=Vec4i(merge1[0],merge1[1],merge2[0],merge2[1]);
     						lines[testline]=Out;
-    						printf("Replacing line #%u. Deleting line #%u\n",testline,loopline);
+    						//printf("Replacing line #%u. Deleting line #%u\n",testline,loopline);
     						lines.erase(lines.begin()+loopline);
     						size=lines.size();
     						loopline--;
@@ -390,7 +391,7 @@ vector<vector<Vec4i> > FindGoals(vector<Vec4i> lines, Vec2i p, float anglethresh
 		Out.push_back(temp[i]);
 	}
 	*/
-	printf("%u\n",Out.size());
+	//printf("%u\n",Out.size());
 	return Out;
 }
 vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
@@ -419,23 +420,23 @@ vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 
 		if(norm(test1)>norm(test2)){
 			if(norm(test2)<margin*norm(b1p2-b1p1) && norm(test1)<norm(b1p2-b1p1)){
-				printf("Goal!\n");
+				//printf("Goal!\n");
 				s1p1+=test2;
 				s1p2+=test2;
 			}
 			else{
-				printf("No Goal1\n");
+				//printf("No Goal1\n");
 				edit[0]=1;
 			}
 		}
 		else{	
 			if(norm(test1)<margin*norm(b1p2-b1p1) && norm(test2)<norm(b1p2-b1p1)){
-				printf("Other Goal!\n");
+				//printf("Other Goal!\n");
 				s1p1+=test1;
 				s1p2+=test1;
 			}
 			else{
-				printf("No Goal2\n");
+				//printf("No Goal2\n");
 				edit[0]=1;
 			}
 		}
@@ -444,23 +445,23 @@ vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 
 		if(norm(btest1)>norm(btest2)){
 			if(norm(btest2)<margin*norm(b1p2-b1p1)&& norm(btest1)<norm(b1p2-b1p1)){
-				printf("2Goal!\n");
+				//printf("2Goal!\n");
 				s2p1+=btest2;
 				s2p2+=btest2;
 			}
 			else{
-				printf("2No Goal1\n");
+				//printf("2No Goal1\n");
 				edit[1]=1;
 			}
 		}
 		else{	
 			if(norm(btest1) < margin*norm(b1p2-b1p1)&& norm(btest2)<norm(b1p2-b1p1)){
-				printf("2Other Goal!\n");
+				//printf("2Other Goal!\n");
 				s2p1+=btest1;
 				s2p2+=btest1;
 			}
 			else{
-				printf("2No Goal2\n");
+				//printf("2No Goal2\n");
 				edit[1]=1;
 			}
 		}
@@ -559,6 +560,9 @@ vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 		out.push_back(Vec4i(i1[0],i1[1],i2[0],i2[1]));
 		out.push_back(Vec4i(s2p1[0],s2p1[1],s2p2[0],s2p2[1]));
 		Out.push_back(out);
+		if(whee[7]>whee[1]){
+			whee=Vec8i(whee[6],whee[7],whee[4],whee[5],whee[2],whee[3],whee[0],whee[1]);
+		}
 		Out2.push_back(whee);
 		out.clear();
 	}
@@ -577,7 +581,7 @@ vector<vector<Vec4i> >PrioritizeGoals(vector<vector<Vec4i> > goals){
 		Vec2i bp1=Vec2i(Base[0],Base[1]);
 		Vec2i bp2=Vec2i(Base[2],Base[3]);
 		if(max(norm(s1p1-s1p2),norm(s2p1-s2p2))>0.7*norm(bp1-bp1)){
-			printf("Good!\n");
+			//printf("Good!\n");
 		}
 		
 		goalLoop++;
@@ -698,14 +702,14 @@ void Hough(IplImage *img, struct timeval *t, int display){
         	Vec4i l = lines[i];
         	line( cnt_img, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1,4);
     	}
-    	printf("# of lines:%d\n",size);
+    	//printf("# of lines:%d\n",size);
     	int distance=15;
     	float angle=.95;
     	int gap=10;
     	//while(lines.size()>=15){
     		lines=CullLines(lines,angle,distance,10);
     		//lines=CullLines(lines,angle,distance,10);
-    		printf("end lines:%lu\n",lines.size());
+    		//printf("end lines:%lu\n",lines.size());
     		for(unsigned int i=0;i<lines.size();i++){
     			//line(cnt_img,Point(lines[i][0],lines[i][1]),Point(lines[i][2],lines[i][3]),Scalar(0,255,0),3,4);
     		}
@@ -720,7 +724,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     		//gap--;
     	//}
     	vector<vector<Vec4i> > goals = FindGoals(lines,Vec2i(1,0),.95,gap);
-    	printf("%lu\n",goals.size());
+    	//printf("%lu\n",goals.size());
     	
     	int testline=0;
     	size=lines.size();
@@ -740,7 +744,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	}
     	*/
     	vector<Vec8i> finalgoals;
-    	finalgoals = FixUpGoals(goals,.1);
+    	finalgoals = FixUpGoals(goals,.2);
     	for(unsigned int i=0;i<goals.size();i++){
     		vector<Vec4i> onegoal=goals[i];
     		for(unsigned int j=0;j<onegoal.size();j++){
@@ -756,8 +760,12 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[2],onegoal[3]));
 			imagePoints.push_back(Point2f(onegoal[4],onegoal[5]));
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
-			Vec6f GOOOOOAAAAAAALLLLLL=GivePos(imagePoints);
-			printf("WOOOO!: %f, %f, %f \n",GOOOOOAAAAAAALLLLLL[0],GOOOOOAAAAAAALLLLLL[1],GOOOOOAAAAAAALLLLLL[2]);
+			Vec6f GOAL=GivePos(imagePoints);
+			printf("WOO!: %f, %f, %f \n",GOAL[0],GOAL[1],GOAL[2]);
+			if(abs(GOAL[0]-64)<3){
+				Average=.9*Average+.1*GOAL;
+				printf("Averaged!: %f,%f,%f \n",Average[0],Average[1],Average[2]);
+			}
 		
 		}
     	//PrioritizeGoals(goals);
