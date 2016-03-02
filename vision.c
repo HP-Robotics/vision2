@@ -110,9 +110,9 @@ typedef struct
 
 camera_default_t g_camera_defaults[] =
 {
-    /* { "Brightness", -100 } */
-	{ "Exposure, Auto", 1},
-	{ "Exposure (Absolute)",1000}
+     { "Exposure, Auto", 1},
+     { "Exposure (Absolute)",0},
+     { "Brightness", 30 } ,
 
 };
 
