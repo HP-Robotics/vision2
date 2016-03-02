@@ -694,7 +694,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     
     s=vision_snapshot_number();
     
-    if(display || s>=0){
+    {
     	Mat cnt_img = Mat::zeros(copy.size(), CV_8UC3);
     	int size=lines.size();
     	for( size_t i = 0; i < lines.size(); i++ )
