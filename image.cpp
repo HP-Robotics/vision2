@@ -36,8 +36,8 @@ Vec6f Average=Vec6f(0,0,0,0,0,0);
 Vec6f GivePos(vector<Point2f> imagePoints){
 	vector<Point3f> objectPoints;
 	objectPoints.push_back(Point3f(0,0,0));
-	objectPoints.push_back(Point3f(14,0,0));
-	objectPoints.push_back(Point3f(14,20,0));
+	objectPoints.push_back(Point3f(12,0,0));
+	objectPoints.push_back(Point3f(12,20,0));
 	objectPoints.push_back(Point3f(0,20,0));
 
     Mat cameraMatrix(3,3,DataType<double>::type);
@@ -766,7 +766,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
 			printf("WOO!: %f, %f, %f \n",GOAL[0],GOAL[1],GOAL[2]);
-			if(abs(GOAL[0]-88.5)<5){
+			if(abs(GOAL[0]-86.5)<5){
 				printf("HERE!\n");
 				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
 					closest=GOAL;
@@ -777,7 +777,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 		
 		}
 		if(closest!=Average && closest[0]>1){
-			if(abs(Average[0]-88.5)>5){
+			if(abs(Average[0]-86.5)>5){
 				Average=closest;
 			}
 			else{
