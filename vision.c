@@ -50,7 +50,7 @@ int g_contours = 0;
 int g_canny = 1;
 int g_sobel = 0;
 int g_fast = 0;
-int g_hough = 0;
+int g_hough = 1;
 
 double g_canny_threshold = 10.0;
 int g_contour_level = 1;
@@ -961,16 +961,21 @@ int vision_main(int argc, char *argv[])
     }
 
     if (optind < argc) {
-        IplImage *img;
         int i;
 
         for (i = optind; i < argc; i++)
         {
+            IplImage *in_img;
+            IplImage *img;
             printf("%d: %s\n", i, argv[i]);
             if (strlen(argv[i]) >= 3 && strcmp(argv[i] + strlen(argv[i]) - 3, "raw") == 0)
                 img = vision_from_raw_file(argv[i]);
             else
-                img = vision_from_normal_file(argv[i]);
+            {
+                in_img = vision_from_normal_file(argv[i]);
+                img = cvCreateImage(cvGetSize(in_img), IPL_DEPTH_8U, 1);
+                cvCvtColor(in_img, img, CV_RGB2GRAY);
+            }
             if (!img)
             {
                 fprintf(stderr, "Error:  cannot read %s\n", argv[i]);
