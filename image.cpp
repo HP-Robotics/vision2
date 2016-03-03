@@ -742,7 +742,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	finalgoals = FixUpGoals(goals,.2);
     	for(unsigned int i=0;i<finalgoals.size();i++){
     		Vec8i onegoal=finalgoals[i];
-    		//printf("%d,%d,%d,%d\n",draw[0],draw[1],draw[2],draw[3]);
+    		printf("(%d,%d),(%d,%d),(%d,%d),(%d,%d)\n",onegoal[0],onegoal[1],onegoal[2],onegoal[3],onegoal[4],onegoal[5],onegoal[6],onegoal[7]);
     		line(cnt_img,Point(onegoal[0],onegoal[1]),Point(onegoal[2],onegoal[3]),Scalar(0,255,255),1,4);
     		line(cnt_img,Point(onegoal[0],onegoal[1]),Point(onegoal[6],onegoal[7]),Scalar(255,255,255),1,4);
     		line(cnt_img,Point(onegoal[2],onegoal[3]),Point(onegoal[4],onegoal[5]),Scalar(255,0,255),1,4);
@@ -754,7 +754,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	if(badframes>10){
     		Average=0*Average;
     	}
-    	printf("%d \n",badframes);
+    	printf("badframes: %d \n",badframes);
     	Vec6f closest;
     	closest=0*closest;
 		for(unsigned int i=0;i<finalgoals.size();i++){
@@ -766,7 +766,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
 			printf("WOO!: %f, %f, %f \n",GOAL[0],GOAL[1],GOAL[2]);
-			if(abs(GOAL[0]-91)<3){
+			if(abs(GOAL[0]-88.5)<5){
 				printf("HERE!\n");
 				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
 					closest=GOAL;
@@ -777,15 +777,15 @@ void Hough(IplImage *img, struct timeval *t, int display){
 		
 		}
 		if(closest!=Average && closest[0]>1){
-			if(abs(Average[0]-91)>3){
+			if(abs(Average[0]-88.5)>5){
 				Average=closest;
 			}
 			else{
-				Average=.9*Average+.1*closest;
+				Average=.7*Average+.3*closest;
 			}
 		}
-		printf("closest!: %f,%f,%f \n\n",closest[0],closest[1],closest[2]);
-		printf("Averaged!: %f,%f,%f \n\n",Average[0],Average[1],Average[2]);
+		printf("closest!: (%f,%f,%f),(%f,%f,%f) \n\n",closest[0],closest[1],closest[2],closest[3],closest[4],closest[5]);
+		printf("Averaged!: (%f,%f,%f),(%f,%f,%f) \n\n",Average[0],Average[1],Average[2],Average[3],Average[4],Average[5]);
 		
     	//PrioritizeGoals(goals);
     	if(display){
