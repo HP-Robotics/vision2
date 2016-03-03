@@ -32,6 +32,7 @@
 
 using namespace cv;
 Vec6f Average=Vec6f(0,0,0,0,0,0);
+    int badframes=0;
 Vec6f GivePos(vector<Point2f> imagePoints){
 	vector<Point3f> objectPoints;
 	objectPoints.push_back(Point3f(0,0,0));
@@ -179,7 +180,6 @@ vector<Vec4i> GetGoals(vector<Vec4i> lines, int error){
 			Vec2i c2=b1-(b2-b1)*error/norm(b2-b1);
 			
 			
-			Vec4i Merge=Vec4i(t1[0],t1[1],t2[0],t2[1]);
 			if(float((t2-t1)[0]*(c1-t1)[1]-(t2-t1)[1]*(c1-t1)[0])/((t2-t1)[0]*(c2-t1)[1]-(t2-t1)[1]*(c2-t1)[0])<0){
 				if(float((c2-c1)[0]*(t1-c1)[1]-(c2-c1)[1]*(t1-c1)[0])/((c2-c1)[0]*(t2-c1)[1]-(c2-c1)[1]*(t2-c1)[0])<0){
 					intersects++;
@@ -219,7 +219,6 @@ vector<Vec4i> GetGoals(vector<Vec4i> lines, int error){
 				Vec2i c2=b1-(b2-b1)*error/norm(b2-b1);
 			
 			
-				Vec4i Merge=Vec4i(t1[0],t1[1],t2[0],t2[1]);
 				if(float((t2-t1)[0]*(c1-t1)[1]-(t2-t1)[1]*(c1-t1)[0])/((t2-t1)[0]*(c2-t1)[1]-(t2-t1)[1]*(c2-t1)[0])<0 && 
 				float((c2-c1)[0]*(t1-c1)[1]-(c2-c1)[1]*(t1-c1)[0])/((c2-c1)[0]*(t2-c1)[1]-(c2-c1)[1]*(t2-c1)[0])<0){
 					intersects++;
@@ -283,7 +282,6 @@ vector<Vec4i> CullNonGoals(vector<Vec4i> lines, Vec2i p, float anglethreshold, i
 			Vec2i c2=b1-(b2-b1)*error/norm(b2-b1);
 			
 			
-			Vec4i Merge=Vec4i(t1[0],t1[1],t2[0],t2[1]);
 			if(float((t2-t1)[0]*(c1-t1)[1]-(t2-t1)[1]*(c1-t1)[0])/((t2-t1)[0]*(c2-t1)[1]-(t2-t1)[1]*(c2-t1)[0])<0 && 
 			float((c2-c1)[0]*(t1-c1)[1]-(c2-c1)[1]*(t1-c1)[0])/((c2-c1)[0]*(t2-c1)[1]-(c2-c1)[1]*(t2-c1)[0])<0){
 				unsigned int line2Index=lineIndex+1;
@@ -313,7 +311,7 @@ vector<Vec4i> CullNonGoals(vector<Vec4i> lines, Vec2i p, float anglethreshold, i
 		lineIndex++;
 	
 	}
-	for(int i=0;i<temp.size();i++){
+	for(unsigned int i=0;i<temp.size();i++){
 		Out.push_back(temp[i]);
 	}
 	
@@ -338,7 +336,6 @@ vector<vector<Vec4i> > FindGoals(vector<Vec4i> lines, Vec2i p, float anglethresh
 	while(lineIndex<sides.size()){
 		Vec4i Main=sides[lineIndex];
 		unsigned int loopIndex=0;
-		bool exit=0;
 		while(loopIndex<lines.size()){
 			Vec4i Comp=lines[loopIndex];
 			
@@ -371,7 +368,6 @@ vector<vector<Vec4i> > FindGoals(vector<Vec4i> lines, Vec2i p, float anglethresh
 						Out.push_back(temp);
 						temp.clear();
 						//lines.erase(loopIndex+lines.begin());
-						exit=1;
 					}
 					
 					
@@ -685,7 +681,6 @@ void Hough(IplImage *img, struct timeval *t, int display){
     int s;
     Mat copy=Mat(img,true);
     vector<Vec4i> lines;
-    
     HoughLinesP(copy, lines, 1, CV_PI/180, 15, 10, 20 );
     
     gettimeofday(&end,NULL);
@@ -716,7 +711,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     		
     		lines=CullNonGoals(lines,Vec2i(1,0),.95,gap);
     		for(unsigned int i=0;i<lines.size();i++){
-    			line(cnt_img,Point(lines[i][0],lines[i][1]),Point(lines[i][2],lines[i][3]),Scalar(255,255,0),1,4);
+    			//line(cnt_img,Point(lines[i][0],lines[i][1]),Point(lines[i][2],lines[i][3]),Scalar(255,255,0),1,4);
     		}
     		lines=GetGoals(lines,gap);
     		distance++;
@@ -745,14 +740,23 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	*/
     	vector<Vec8i> finalgoals;
     	finalgoals = FixUpGoals(goals,.2);
-    	for(unsigned int i=0;i<goals.size();i++){
-    		vector<Vec4i> onegoal=goals[i];
-    		for(unsigned int j=0;j<onegoal.size();j++){
-    			Vec4i draw=onegoal[j];
-    			//printf("%d,%d,%d,%d\n",draw[0],draw[1],draw[2],draw[3]);
-    			line(cnt_img,Point(draw[0],draw[1]),Point(draw[2],draw[3]),Scalar(255,255,255),1,4);
-    		}
+    	for(unsigned int i=0;i<finalgoals.size();i++){
+    		Vec8i onegoal=finalgoals[i];
+    		//printf("%d,%d,%d,%d\n",draw[0],draw[1],draw[2],draw[3]);
+    		line(cnt_img,Point(onegoal[0],onegoal[1]),Point(onegoal[2],onegoal[3]),Scalar(0,255,255),1,4);
+    		line(cnt_img,Point(onegoal[0],onegoal[1]),Point(onegoal[6],onegoal[7]),Scalar(255,255,255),1,4);
+    		line(cnt_img,Point(onegoal[2],onegoal[3]),Point(onegoal[4],onegoal[5]),Scalar(255,0,255),1,4);
+    		line(cnt_img,Point(onegoal[4],onegoal[5]),Point(onegoal[6],onegoal[7]),Scalar(255,255,0),1,4);
     	}
+    	if(finalgoals.size()<1){
+    		badframes++;
+    	}
+    	if(badframes>10){
+    		Average=0*Average;
+    	}
+    	printf("%d \n",badframes);
+    	Vec6f closest;
+    	closest=0*closest;
 		for(unsigned int i=0;i<finalgoals.size();i++){
 			Vec8i onegoal=finalgoals[i];
 			vector<Point2f> imagePoints;
@@ -762,12 +766,27 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
 			printf("WOO!: %f, %f, %f \n",GOAL[0],GOAL[1],GOAL[2]);
-			if(abs(GOAL[0]-64)<3){
-				Average=.9*Average+.1*GOAL;
-				printf("Averaged!: %f,%f,%f \n",Average[0],Average[1],Average[2]);
+			if(abs(GOAL[0]-91)<3){
+				printf("HERE!\n");
+				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
+					closest=GOAL;
+				}
+				badframes=0;
+				
 			}
 		
 		}
+		if(closest!=Average && closest[0]>1){
+			if(abs(Average[0]-91)>3){
+				Average=closest;
+			}
+			else{
+				Average=.9*Average+.1*closest;
+			}
+		}
+		printf("closest!: %f,%f,%f \n\n",closest[0],closest[1],closest[2]);
+		printf("Averaged!: %f,%f,%f \n\n",Average[0],Average[1],Average[2]);
+		
     	//PrioritizeGoals(goals);
     	if(display){
     							imshow("HoughLines", cnt_img);
