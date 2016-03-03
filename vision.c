@@ -50,7 +50,7 @@ int g_contours = 0;
 int g_canny = 1;
 int g_sobel = 0;
 int g_fast = 0;
-int g_hough = 1;
+int g_hough = 0;
 
 double g_canny_threshold = 10.0;
 int g_contour_level = 1;
@@ -63,7 +63,6 @@ int g_snap_next = 0;
 int g_snap = 1;
 
 char *g_blur_type = "gaussian";
-char *g_single;
 
 char *g_listen;
 char *g_streaming;
@@ -362,10 +361,9 @@ IplImage * vision_from_normal_file(char *filename)
 
 static void usage(char *argv0)
 {
-    printf("%s [--display] [--color [--fps n] [--width n] [--height n]\n", argv0);
+    printf("%s [--display] [--color [--fps n] [--width n] [--height n] [fname1] [fname2]\n", argv0);
     printf("%*.*s [--blur type] [--canny rate] [--contours xx] [--fast] [--sobel xxx] [--hough xxx]\n", (int) strlen(argv0), (int) strlen(argv0), "");
     printf("%*.*s [--no-filter] [--filter]\n", (int) strlen(argv0), (int) strlen(argv0), "");
-    printf("%*.*s [--single filename]\n", (int) strlen(argv0), (int) strlen(argv0), "");
     printf("%*.*s [--listen host:port]\n", (int) strlen(argv0), (int) strlen(argv0), "");
 }
 
@@ -388,7 +386,6 @@ static int parse_arguments(int argc, char *argv[])
         {"contours", required_argument, 0, 'z' },
         {"fast",    no_argument,       0,  's' },
         {"hough", required_argument, 0, '2' },
-        {"single", required_argument, 0, 'i' },
         {"listen", required_argument, 0, 'l' },
         {"streaming", required_argument, 0, '3' },
         {"watch", required_argument, 0, '4' },
@@ -399,7 +396,7 @@ static int parse_arguments(int argc, char *argv[])
     while (1)
     {
         int option_index = 0;
-        c = getopt_long(argc, argv, "0dcTtf:w:h:b:a:1:z:s:2:3:4:i:", long_options, &option_index);
+        c = getopt_long(argc, argv, "0dcTtf:w:h:b:a:1:z:s:2:3:4:", long_options, &option_index);
         switch(c)
         {
             case 'd':
@@ -428,10 +425,6 @@ static int parse_arguments(int argc, char *argv[])
 
             case 'h':
                 g_desired_height = atoi(optarg);
-                break;
-
-            case 'i':
-                g_single = strdup(optarg);
                 break;
 
             case 'l':
@@ -967,19 +960,27 @@ int vision_main(int argc, char *argv[])
             return -1;
     }
 
-    if (g_single) {
+    if (optind < argc) {
         IplImage *img;
+        int i;
 
-        if (strlen(g_single) >= 3 && strcmp(g_single + strlen(g_single) - 3, "raw") == 0)
-            img = vision_from_raw_file(g_single);
-        else
-            img = vision_from_normal_file(g_single);
-        if (!img)
+        for (i = optind; i < argc; i++)
         {
-            fprintf(stderr, "Error:  cannot read %s\n", g_single);
-            return -1;
+            printf("%d: %s\n", i, argv[i]);
+            if (strlen(argv[i]) >= 3 && strcmp(argv[i] + strlen(argv[i]) - 3, "raw") == 0)
+                img = vision_from_raw_file(argv[i]);
+            else
+                img = vision_from_normal_file(argv[i]);
+            if (!img)
+            {
+                fprintf(stderr, "Error:  cannot read %s\n", argv[i]);
+                return -1;
+            }
+            process_one_image(img);
+            cvWaitKey(1);
+            usleep(1000 * 1000);
         }
-        process_one_image(img);
+
         cvWaitKey(0);
         return 0;
     }
