@@ -978,7 +978,7 @@ int vision_main(int argc, char *argv[])
             }
             process_one_image(img);
             cvWaitKey(1);
-            usleep(1000 * 1000);
+            usleep(100 * 1000);
         }
 
         cvWaitKey(0);
