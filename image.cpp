@@ -36,8 +36,8 @@ Vec6f Average=Vec6f(0,0,0,0,0,0);
 Vec6f GivePos(vector<Point2f> imagePoints){
 	vector<Point3f> objectPoints;
 	objectPoints.push_back(Point3f(0,0,0));
-	objectPoints.push_back(Point3f(12,0,0));
-	objectPoints.push_back(Point3f(12,20,0));
+	objectPoints.push_back(Point3f(13,0,0));
+	objectPoints.push_back(Point3f(13,20,0));
 	objectPoints.push_back(Point3f(0,20,0));
 
     Mat cameraMatrix(3,3,DataType<double>::type);
