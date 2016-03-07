@@ -783,7 +783,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
 			printf("WOO!: %f, %f, %f \n",GOAL[0],GOAL[1],GOAL[2]);
-			if(abs(GOAL[0]-83)<2){
+			if(abs(GOAL[0]-82)<2){
 				printf("HERE!\n");
 				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
 					closest=GOAL;
@@ -794,7 +794,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 		
 		}
 		if(closest!=Average && closest[0]>1){
-			if(abs(Average[0]-83)>2){
+			if(abs(Average[0]-82)>2){
 				Average=closest;
 			}
 			else{
