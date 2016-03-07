@@ -33,23 +33,25 @@
 using namespace cv;
 Vec6f Average=Vec6f(0,0,0,0,0,0);
     int badframes=0;
-Vec6f GivePos(vector<Point2f> imagePoints){
-	vector<Point3f> objectPoints;
-	objectPoints.push_back(Point3f(0,0,0));
-	objectPoints.push_back(Point3f(13,0,0));
-	objectPoints.push_back(Point3f(13,20,0));
-	objectPoints.push_back(Point3f(0,20,0));
+
+Vec6f GivePos(vector<Point2f> imagePoints)
+{
+    vector<Point3f> objectPoints;
+    objectPoints.push_back(Point3f(0,0,0));
+    objectPoints.push_back(Point3f(12,0,0));
+    objectPoints.push_back(Point3f(12,20,0));
+    objectPoints.push_back(Point3f(0,20,0));
 
     Mat cameraMatrix(3,3,DataType<double>::type);
     cameraMatrix.at<double>(0,0) = 6.6460611429610833e+02;
     cameraMatrix.at<double>(0,1) = 0;
-	cameraMatrix.at<double>(0,2) = 3.1950000000000000e+02;
+    cameraMatrix.at<double>(0,2) = 3.1950000000000000e+02;
     cameraMatrix.at<double>(1,0) = 0;
     cameraMatrix.at<double>(1,1) = 6.6460611429610833e+02;
     cameraMatrix.at<double>(1,2) = 2.3950000000000000e+02;
     cameraMatrix.at<double>(2,0) = 0;
-	cameraMatrix.at<double>(2,1) = 0;
-	cameraMatrix.at<double>(2,2) = 1;
+    cameraMatrix.at<double>(2,1) = 0;
+    cameraMatrix.at<double>(2,2) = 1;
 
     Mat distCoeffs(5,1,cv::DataType<double>::type);
     distCoeffs.at<double>(0) = 1.1053343399362968e-01;
@@ -57,30 +59,45 @@ Vec6f GivePos(vector<Point2f> imagePoints){
     distCoeffs.at<double>(2) = -4.4370054672551659e-03;
     distCoeffs.at<double>(3) = -7.7107888138698939e-03;
     distCoeffs.at<double>(4) = 1.6344276379725158e+00;
-	cv::Mat rvec(3,1,cv::DataType<double>::type);
-    cv::Mat tvec(3,1,cv::DataType<double>::type);
+
+    cv::Mat rvec(1,3,cv::DataType<double>::type);
+    cv::Mat tvec(1,3,cv::DataType<double>::type);
     cv::solvePnP(objectPoints, imagePoints, cameraMatrix, distCoeffs, rvec, tvec);
+
     Mat rotMatrix(3,3,DataType<double>::type);
     cv::Rodrigues(rvec,rotMatrix);
-    Mat outMatrix(4,4,DataType<double>::type);
-    outMatrix=Mat::zeros(4,4,DataType<double>::type);
-    outMatrix.at<double>(0,0)=rotMatrix.at<double>(0,0);
-    outMatrix.at<double>(0,1)=rotMatrix.at<double>(0,1);
-    outMatrix.at<double>(0,2)=rotMatrix.at<double>(0,2);
-    outMatrix.at<double>(1,0)=rotMatrix.at<double>(1,0);
-    outMatrix.at<double>(1,1)=rotMatrix.at<double>(1,1);
-    outMatrix.at<double>(1,2)=rotMatrix.at<double>(1,2);
-    outMatrix.at<double>(2,0)=rotMatrix.at<double>(2,0);
-    outMatrix.at<double>(2,1)=rotMatrix.at<double>(2,1);
-    outMatrix.at<double>(2,2)=rotMatrix.at<double>(2,2);
-    outMatrix.at<double>(3,0)=tvec.at<double>(0);
-    outMatrix.at<double>(3,1)=tvec.at<double>(1);
-    outMatrix.at<double>(3,2)=tvec.at<double>(2);
-    outMatrix.at<double>(3,3)=1;
-    outMatrix=outMatrix.t();
-    outMatrix=outMatrix.inv();
-	return Vec6f(outMatrix.at<double>(0,3),outMatrix.at<double>(1,3),outMatrix.at<double>(2,3),tvec.at<double>(0),tvec.at<double>(1),tvec.at<double>(2));
+
+    /* Formula is s [u/v/1] = M(R+t) [X/Y/Z/1] 
+       Let's call [u/v/1] 'o', and use u=0, v=0
+       Let's call [X/Y/Z/1] 'O'
+       So then it is s o = MO(R+t)
+       Which can be:
+         M^-1 s o = O(R+t)
+       or 
+         M^-1 R^-1 s o = O + tR^-1
+       or
+         O = M^-1 R^-1 s o - tR^-1
+        */
+
+
+    Mat outMatrix(1,4,DataType<double>::type);
+    outMatrix=Mat::zeros(1,4,DataType<double>::type);
+
+    cv::Mat origin(3, 1, DataType<double>::type);
+    origin = Mat::zeros(3, 1, DataType<double>::type);
+    origin.at<double>(2) = 1;
+
+    cv::Mat tempMat1, tempMat2;
+
+    tempMat1 = cameraMatrix.inv() * rotMatrix.inv() * origin;
+
+    tempMat2 = rotMatrix.inv() * tvec;
+
+    outMatrix = tempMat1 - tempMat2;
+
+    return Vec6f(outMatrix.at<double>(0),outMatrix.at<double>(1),outMatrix.at<double>(2),tvec.at<double>(0),tvec.at<double>(1),tvec.at<double>(2));
 }
+
 vector<Vec4i> CullLines(vector<Vec4i> lines, float angle,int distance, int gap){
 		int size=lines.size();
     	int testline=0;
@@ -766,7 +783,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
 			printf("WOO!: %f, %f, %f \n",GOAL[0],GOAL[1],GOAL[2]);
-			if(abs(GOAL[0]-86.5)<5){
+			if(abs(GOAL[0]-83)<2){
 				printf("HERE!\n");
 				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
 					closest=GOAL;
@@ -777,7 +794,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 		
 		}
 		if(closest!=Average && closest[0]>1){
-			if(abs(Average[0]-86.5)>5){
+			if(abs(Average[0]-83)>2){
 				Average=closest;
 			}
 			else{
