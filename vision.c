@@ -30,13 +30,24 @@
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/imgproc/imgproc_c.h"
 
 #include "capture.h"
 #include "image.h"
 #include "socket.h"
 
 //Woodshop filter { 0, 23, 0, 134, 0, 122 }
-filter_t g_color_filter = { 0, 255, 0, 255, 0, 100 };
+/*
+    int min_y;
+    int max_y;
+    int min_u;
+    int max_u;
+    int min_v;
+    int max_v;
+*/
+filter_t g_color_filter = { 68, 106, 105, 126, 50, 115};
+
+//filter_t g_color_filter = { 0, 255, 0, 255, 0, 100 };
 //{ 128, 255, 0, 255, 64, 255 };
 
 /* 1 color for mono, 3 colors for rgb */
@@ -355,6 +366,78 @@ IplImage * vision_from_raw_file(char *filename)
 
     return img;
 }
+
+void vision_print_yuv(char *filename, int x, int y)
+{
+    unsigned char *raw_data = NULL;
+    unsigned char *p;
+    FILE *fp;
+    struct stat s;
+    int width;
+    int height;
+    int x2;
+    int u;
+    int v;
+    int y1;
+    int y2;
+    int cg;
+    int cb;
+    int cr;
+    int g1;
+    int g2;
+    int b1;
+    int b2;
+    int r1;
+    int r2;
+
+
+    if (stat(filename, &s))
+        return;
+
+    fp = fopen(filename, "rb");
+    if (!fp)
+        return;
+
+    if (compute_size(s.st_size, &width, &height)){
+        fprintf(stderr, "Error: size of %ld not understood.\n", s.st_size);
+        return;
+    }
+
+    raw_data = calloc(1, s.st_size);
+    fread(raw_data, 1, s.st_size, fp);
+    fclose(fp);
+
+    x2 = (x / 2);
+    p = (raw_data + (y * width * 2));
+    p += (x2 * 4);
+
+    u = p[1];
+    v = p[3];
+    y1 = p[0];
+    y2 = p[2];
+    cb = ((u - 128) * 454) >> 8;
+    b1 = y1 + cb;
+    b2 = y2 + cb;
+
+    cr = ((v - 128) * 359) >> 8;
+    r1 = y1 + cr;
+    r2 = y2 + cr;
+
+    cg = (u - 128) * 88;
+    cg = (cg + ((v - 128) * 183)) >> 8;
+    g1 = y1 - cg;
+    g2 = y2 - cg;
+
+    fprintf(stderr, "yuv for %d, %d: Y ", x, y);
+    if (x % 2)
+        fprintf(stderr, "Y %d, U %d, V %d, g %d, r %d, b %d\n", y1, u, v, g1, b1, r1);
+    else
+        fprintf(stderr, "Y %d, U %d, V %d, g %d, r %d, b %d\n", y2, u, v, g2, b2, r2);
+
+
+    free(raw_data);
+}
+
 
 IplImage * vision_from_normal_file(char *filename)
 {
@@ -908,11 +991,19 @@ char *vision_file_template(int s, char *type, char *ext)
 }
 
 
-void process_one_image(IplImage *img)
+void show_yuv(int event, int x, int y, int flags, void* userdata)
+{
+    vision_print_yuv((char *) userdata, x, y);
+}
+
+void process_one_image(IplImage *img, char *filename)
 {
 
-    if (g_display)
+    if (g_display) {
         cvShowImage("Camera", img);
+        if (filename)
+            cvSetMouseCallback("Camera", show_yuv, filename);
+    }
 
     if (g_snap_next) {
         cvSaveImage(vision_file_template(g_snap, "initial", "png"), img, 0);
@@ -989,7 +1080,7 @@ int vision_main(int argc, char *argv[])
                 fprintf(stderr, "Error:  cannot read %s\n", argv[i]);
                 return -1;
             }
-            process_one_image(img);
+            process_one_image(img, argv[i]);
             cvWaitKey(1);
             usleep(100 * 1000);
         }
@@ -1042,7 +1133,7 @@ int vision_main(int argc, char *argv[])
             timersub(&end, &start, &diff);
             timeradd(&g_total_retrieve_time, &diff, &g_total_retrieve_time);
 
-            process_one_image(img);
+            process_one_image(img, NULL);
             vision_release(&g_cam, &img);
 
             g_count++;
