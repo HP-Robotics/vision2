@@ -50,7 +50,7 @@ int g_contours = 0;
 int g_canny = 1;
 int g_sobel = 0;
 int g_fast = 0;
-int g_hough = 1;
+int g_hough = 0;
 
 double g_canny_threshold = 10.0;
 int g_contour_level = 1;
@@ -109,9 +109,11 @@ typedef struct
 
 camera_default_t g_camera_defaults[] =
 {
+/*
      { "Exposure, Auto", 1},
      { "Exposure (Absolute)",0},
      { "Brightness", 30 } ,
+*/
 
 };
 
@@ -128,7 +130,7 @@ static void compute_reticle(int *x, int *y)
         *x = 221;
         *y = 324;
     }
-    else if (g_rpm == 3900)
+    else if (g_rpm > 3400)
     {
         *x = 210;
         *y = 163;
@@ -194,6 +196,12 @@ static void save_images(capture_t *c, void *raw)
 
         cvSaveImage(fname, rotated, NULL);
         cvReleaseImage(&rotated);
+
+        {
+            char hackbuf[1024];
+            sprintf(hackbuf, "mv %s/img%03d.jpg %s/snapshot.jpg", g_streaming, g_stream_count, g_streaming);
+            system(hackbuf);
+        }
     }
     /* JPW TODO - Save to /var/www/html/shots for a period of time */
     free(data);
