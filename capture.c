@@ -59,6 +59,18 @@ static void yuyv_to_rgb24 (unsigned char *src, unsigned char *dst, int width, in
                 (s[1] < filter->min_u || s[1] > filter->max_u ||
                  s[3] < filter->min_v || s[3] > filter->max_v))
             {
+                y1 = *s;
+                cg = (*(s+1) - 128) * 88;
+                y2 = *(s+2);
+                cg = (cg + (*(s+3) - 128) * 183) >> 8;
+
+                cb = ((*(s+1) - 128) * 454) >> 8;
+
+                cr = ((*(s+3) - 128) * 359) >> 8;
+
+
+fprintf(stderr, "BAD Y %d, U %d, V %d, g %d, b %d, r %d\n", y1, *(s+1), *(s+3), y1 - cg, y1 + cb, y1 + cb);
+fprintf(stderr, "BAD Y %d, U %d, V %d, g %d, b %d, r %d\n", y2, *(s+1), *(s+3), y2 - cg, y2 + cr, y2 + cr);
                 d += 6;
                 s += 4;
                 continue;
@@ -71,13 +83,16 @@ static void yuyv_to_rgb24 (unsigned char *src, unsigned char *dst, int width, in
             cr = ((*s - 128) * 359) >> 8;
             cg = (cg + (*s++ - 128) * 183) >> 8;
 
-            if (filter && (y1 < filter->min_y || y1 > filter->max_y))
+            if (filter && (y1 < filter->min_y || y1 > filter->max_y)) {
                 d += 3;
+fprintf(stderr, "BAD Y %d, U %d, V %d, g %d, b %d, r %d\n", y1, *(s-3), *(s-2), y1 - cg, y1 + cb, y1 + cr);
+            }
             else
             {
                 r = y1 + cr;
                 b = y1 + cb;
                 g = y1 - cg;
+fprintf(stderr, "GOOD Y %d, U %d, V %d, g %d, b %d, r %d\n", y1, *(s-3), *(s-2), g, b, r);
                 SAT(r);
                 SAT(g);
                 SAT(b);
@@ -87,13 +102,16 @@ static void yuyv_to_rgb24 (unsigned char *src, unsigned char *dst, int width, in
                 *d++ = r;
             }
 
-            if (filter && (y2 < filter->min_y || y2 > filter->max_y))
+            if (filter && (y2 < filter->min_y || y2 > filter->max_y)) {
                 d += 3;
+fprintf(stderr, "BAD Y %d, U %d, V %d, g %d, b %d, r %d\n", y2, *(s-3), *(s-2), y2 - cg, y2 + cb, y2 + cr);
+            }
             else
             {
                 r = y2 + cr;
                 b = y2 + cb;
                 g = y2 - cg;
+fprintf(stderr, "GOOD Y %d, U %d, V %d, g %d, b %d, r %d\n", y2, *(s-3), *(s-2), g, b, r);
                 SAT(r);
                 SAT(g);
                 SAT(b);
@@ -114,27 +132,45 @@ static void yuyv_to_8(void *in, void *out, int width, int height, filter_t *filt
     for (h = 0; h < height; h++)
         for (w = 0; w < width; w += 2, p += 4, q += 2)
         {
-#if 0
-int hack = p[0] + ((88 * p[1]) / 256) + ((183 * p[3]) / 256);
-if (hack < 255 || hack > 290)
-    continue;
-#endif
 
-            if (filter &&
-                (p[1] < filter->min_u || p[1] > filter->max_u ||
-                 p[3] < filter->min_v || p[3] > filter->max_v))
-                continue;
+            int u = p[1];
+            int v = p[3];
+            int y1 = p[0];
+            int y2 = p[2];
+            int cg;
+            int cb;
+            int cr;
+            int g1;
+            int g2;
+            int b1;
+            int b2;
+            int r1;
+            int r2;
+            int lowest_non_green1;
+            int lowest_non_green2;
 
-#if  0
-hack = p[2] + ((88 * p[1]) / 256) + ((183 * p[3]) / 256);
-if (hack < 255 || hack > 290)
-    continue;
-#endif
+            cb = ((u - 128) * 454) >> 8;
+            b1 = y1 + cb;
+            b2 = y2 + cb;
 
-            if (!filter || (p[0] >= filter->min_y && p[0] <= filter->max_y))
-                *q = p[0];
-            if (!filter || (p[2] >= filter->min_y && p[2] <= filter->max_y))
-                *(q + 1) = p[2];
+
+            cr = ((v - 128) * 359) >> 8;
+            r1 = y1 + cr;
+            r2 = y2 + cr;
+
+            cg = (u - 128) * 88;
+            cg = (cg + ((v - 128) * 183)) >> 8;
+            g1 = y1 - cg;
+            g2 = y2 - cg;
+            lowest_non_green1 = b1 > r1 ? r1 : b1;
+            lowest_non_green2 = b2 > r2 ? r2 : b2;
+
+            if (!filter || (g1 >= 80 && g1 > (lowest_non_green1 + 30) && g1 > r1 && g2 > b1))
+                *q = y1;
+
+            if (!filter || (g2 >= 80 && g2 > (lowest_non_green2 + 30) && g2 > r2 && g2 > b2))
+                *(q + 1) = y2;
+
         }
 }
 
