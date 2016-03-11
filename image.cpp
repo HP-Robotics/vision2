@@ -606,9 +606,9 @@ void process_blur(IplImage *img, char *type, struct timeval *t)
     struct timeval start, end, diff;
     gettimeofday(&start, NULL);
     Mat a = cvarrToMat(img);
-    GaussianBlur(a, a, Size(3, 3), 1.0);
+    //GaussianBlur(a, a, Size(3, 3), 1.0);
     //blur(a, a, Size(5, 5),Point(-1,1),BORDER_DEFAULT);
-    //medianBlur(a,a, 3);
+    medianBlur(a,a, 3);
     gettimeofday(&end, NULL);
     timersub(&end, &start, &diff);
     timeradd(t, &diff, t);
@@ -698,7 +698,8 @@ void Hough(IplImage *img, struct timeval *t, int display){
     int s;
     Mat copy=Mat(img,true);
     vector<Vec4i> lines;
-    HoughLinesP(copy, lines, 1, CV_PI/180, 15, 10, 20 );
+    /* image, lines, rho, theta, threshold, min len, max line gap */
+    HoughLinesP(copy, lines, 1, CV_PI/180, 15, 10, 15 );
     
     gettimeofday(&end,NULL);
     timersub(&end, &start, &diff);
@@ -726,7 +727,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     			//line(cnt_img,Point(lines[i][0],lines[i][1]),Point(lines[i][2],lines[i][3]),Scalar(0,255,0),3,4);
     		}
     		
-    		lines=CullNonGoals(lines,Vec2i(1,0),.95,gap);
+    		lines=CullNonGoals(lines,Vec2i(1,0),.93,gap);
     		for(unsigned int i=0;i<lines.size();i++){
     			//line(cnt_img,Point(lines[i][0],lines[i][1]),Point(lines[i][2],lines[i][3]),Scalar(255,255,0),1,4);
     		}
@@ -735,7 +736,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     		angle-=.01;
     		//gap--;
     	//}
-    	vector<vector<Vec4i> > goals = FindGoals(lines,Vec2i(1,0),.95,gap);
+    	vector<vector<Vec4i> > goals = FindGoals(lines,Vec2i(1,0),.93,gap);
     	//printf("%lu\n",goals.size());
     	
     	int testline=0;
@@ -782,7 +783,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[4],onegoal[5]));
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
-			printf("WOO!: %f, %f, %f \n",GOAL[0],GOAL[1],GOAL[2]);
+			printf("WOO!: (%f, %f, %f), (%f, %f, %f) \n",GOAL[0],GOAL[1],GOAL[2], GOAL[3], GOAL[4], GOAL[5]);
 			if(abs(GOAL[0]-83.75)<3){
 				printf("HERE!\n");
 				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
