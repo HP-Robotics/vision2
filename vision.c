@@ -97,6 +97,7 @@ struct timeval g_total_blur_time;
 struct timeval g_total_contour_time;
 struct timeval g_total_canny_time;
 struct timeval g_total_sobel_time;
+struct timeval g_total_hough_time;
 struct timeval g_total_fast_time;
 
 char g_save_to_fname[PATH_MAX];
@@ -570,14 +571,14 @@ static double print_avg_time(struct timeval *t, long count)
     return ret;
 }
 
-static void print_stats (long count, struct timeval *r, struct timeval *b, struct timeval *c, struct timeval *can, struct timeval *sob)
+static void print_stats (long count, struct timeval *r, struct timeval *b, struct timeval *c, struct timeval *can, struct timeval *hough)
 {
-    printf("Took %ld pictures. [retrieve %g|blur %g|contour %g|canny %g|sobel %g]\n", count,
+    printf("Took %ld pictures. [retrieve %g|blur %g|contour %g|canny %g|hough %g]\n", count,
         print_avg_time(r, count),
         print_avg_time(b, count),
         print_avg_time(c, count),
         print_avg_time(can, count),
-        print_avg_time(sob, count));
+        print_avg_time(hough, count));
 }
 
 void camera_control_cb(int val, void *arg)
@@ -1028,7 +1029,7 @@ void process_one_image(IplImage *img, char *filename)
         find_contours(img, &g_total_contour_time, g_display, g_contour_level);
 
     if (g_hough)
-        Hough(img, &g_total_contour_time, g_display);
+        Hough(img, &g_total_hough_time, g_display);
 
     if (g_fast)
     {
@@ -1066,6 +1067,7 @@ int vision_main(int argc, char *argv[])
             IplImage *in_img;
             IplImage *img;
             printf("%d: %s\n", i, argv[i]);
+            g_count++;
             if (strlen(argv[i]) >= 3 && strcmp(argv[i] + strlen(argv[i]) - 3, "raw") == 0)
                 img = vision_from_raw_file(argv[i]);
             else
@@ -1085,6 +1087,7 @@ int vision_main(int argc, char *argv[])
         }
 
         cvWaitKey(0);
+        print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_hough_time);
         return 0;
     }
 
@@ -1159,7 +1162,7 @@ int vision_main(int argc, char *argv[])
 
     cvDestroyAllWindows();
 
-    print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_sobel_time);
+    print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_hough_time);
 
     return 0;
 }

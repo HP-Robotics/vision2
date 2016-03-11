@@ -261,7 +261,7 @@ vector<Vec4i> GetGoals(vector<Vec4i> lines, int error){
 		
 	
 	}
-	for(int i=0;i<temp.size();i++){
+	for(unsigned int i=0;i<temp.size();i++){
 		Out.push_back(temp[i]);
 	}
 	return Out;
@@ -427,7 +427,6 @@ vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 		
 		Vec2i b1p1=Vec2i(base[0],base[1]);
 		Vec2i b1p2=Vec2i(base[2],base[3]);
-		bool edit[2]={0,0};		
 		Vec2i test1=(b1p1-s1p1)-(s1p2-s1p1)*(b1p1-s1p1).dot(s1p2-s1p1)/norm(s1p2-s1p1)/norm(s1p2-s1p1);
 		Vec2i test2=(b1p2-s1p1)-(s1p2-s1p1)*(b1p2-s1p1).dot(s1p2-s1p1)/norm(s1p2-s1p1)/norm(s1p2-s1p1);
 
@@ -437,20 +436,12 @@ vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 				s1p1+=test2;
 				s1p2+=test2;
 			}
-			else{
-				//printf("No Goal1\n");
-				edit[0]=1;
-			}
 		}
 		else{	
 			if(norm(test1)<margin*norm(b1p2-b1p1) && norm(test2)<norm(b1p2-b1p1)){
 				//printf("Other Goal!\n");
 				s1p1+=test1;
 				s1p2+=test1;
-			}
-			else{
-				//printf("No Goal2\n");
-				edit[0]=1;
 			}
 		}
 		Vec2i btest1=(b1p1-s2p1)-(s2p2-s2p1)*(b1p1-s2p1).dot(s2p2-s2p1)/norm(s2p2-s2p1)/norm(s2p2-s2p1);
@@ -462,20 +453,12 @@ vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 				s2p1+=btest2;
 				s2p2+=btest2;
 			}
-			else{
-				//printf("2No Goal1\n");
-				edit[1]=1;
-			}
 		}
 		else{	
 			if(norm(btest1) < margin*norm(b1p2-b1p1)&& norm(btest2)<norm(b1p2-b1p1)){
 				//printf("2Other Goal!\n");
 				s2p1+=btest1;
 				s2p2+=btest1;
-			}
-			else{
-				//printf("2No Goal2\n");
-				edit[1]=1;
 			}
 		}
 		/*
@@ -581,26 +564,6 @@ vector<Vec8i> FixUpGoals(vector<vector<Vec4i> > goals, float margin){
 	}
 	return Out2;
 }
-vector<vector<Vec4i> >PrioritizeGoals(vector<vector<Vec4i> > goals){
-	int goalLoop=0;
-	while(goalLoop<goals.size()){
-		Vec4i Side1=goals[goalLoop][0];
-		Vec4i Side2=goals[goalLoop][2];
-		Vec4i Base=goals[goalLoop][1];
-		Vec2i s1p1=Vec2i(Side1[0],Side1[1]);
-		Vec2i s1p2=Vec2i(Side1[2],Side1[3]);
-		Vec2i s2p1=Vec2i(Side2[0],Side1[1]);
-		Vec2i s2p2=Vec2i(Side2[2],Side1[3]);
-		Vec2i bp1=Vec2i(Base[0],Base[1]);
-		Vec2i bp2=Vec2i(Base[2],Base[3]);
-		if(max(norm(s1p1-s1p2),norm(s2p1-s2p2))>0.7*norm(bp1-bp1)){
-			//printf("Good!\n");
-		}
-		
-		goalLoop++;
-	}
-	return goals;
-}
 void process_blur(IplImage *img, char *type, struct timeval *t)
 {
     struct timeval start, end, diff;
@@ -701,10 +664,6 @@ void Hough(IplImage *img, struct timeval *t, int display){
     /* image, lines, rho, theta, threshold, min len, max line gap */
     HoughLinesP(copy, lines, 1, CV_PI/180, 15, 10, 15 );
     
-    gettimeofday(&end,NULL);
-    timersub(&end, &start, &diff);
-    timeradd(t, &diff, t);
-    
     s=vision_snapshot_number();
     
     {
@@ -743,7 +702,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	size=lines.size();
     	
     	while(testline<size){
-    		Vec4i out=lines[testline];
+    		//Vec4i out=lines[testline];
     		//line(cnt_img,Point(out[0],out[1]),Point(out[2],out[3]),Scalar(255,255,0),1,4);
     		testline++;
     	}
@@ -805,7 +764,6 @@ void Hough(IplImage *img, struct timeval *t, int display){
 		printf("closest!: (%f,%f,%f),(%f,%f,%f) \n\n",closest[0],closest[1],closest[2],closest[3],closest[4],closest[5]);
 		printf("Averaged!: (%f,%f,%f),(%f,%f,%f) \n\n",Average[0],Average[1],Average[2],Average[3],Average[4],Average[5]);
 		
-    	//PrioritizeGoals(goals);
     	if(display){
     							imshow("HoughLines", cnt_img);
     							cnt_img=Mat::zeros(copy.size(), CV_8UC3);

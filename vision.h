@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 int vision_snapshot_number(void);
-char *vision_file_template(int s, char *type, char *ext);
+char *vision_file_template(int s, const char *type, const char *ext);
 
 #if defined(__cplusplus)
 };
