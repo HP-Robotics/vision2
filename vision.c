@@ -44,8 +44,9 @@
     int max_u;
     int min_v;
     int max_v;
+    int apply_fancy_logic;
 */
-filter_t g_color_filter = { 68, 106, 105, 126, 50, 115};
+filter_t g_color_filter = { 70, 255, 105, 126, 0, 115, 0};
 
 //filter_t g_color_filter = { 0, 255, 0, 255, 0, 100 };
 //{ 128, 255, 0, 255, 64, 255 };
@@ -61,7 +62,7 @@ int g_contours = 0;
 int g_canny = 1;
 int g_sobel = 0;
 int g_fast = 0;
-int g_hough = 0;
+int g_hough = 1;
 
 double g_canny_threshold = 10.0;
 int g_contour_level = 1;
@@ -120,11 +121,9 @@ typedef struct
 
 camera_default_t g_camera_defaults[] =
 {
-/*
      { "Exposure, Auto", 1},
      { "Exposure (Absolute)",0},
      { "Brightness", 30 } ,
-*/
 
 };
 
