@@ -32,6 +32,10 @@ typedef struct color_filter
     int max_u;
     int min_v;
     int max_v;
+
+    /* If this is on, we apply all kinds of fancy logic
+       to try to keep things green */
+    int apply_fancy_logic;
 } filter_t;
 
 typedef struct capture_control
