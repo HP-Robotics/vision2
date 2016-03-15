@@ -33,6 +33,8 @@
 using namespace cv;
 Vec6f Average=Vec6f(0,0,0,0,0,0);
     int badframes=0;
+    int badframes2=0;
+Vec3f RealAverage=Vec3f(0,0,0);
 
 Vec6f GivePos(vector<Point2f> imagePoints)
 {
@@ -731,9 +733,14 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	if(badframes>10){
     		Average=0*Average;
     	}
+    	if(badframes2>10){
+    		RealAverage=0*RealAverage;
+    	}
     	printf("badframes: %d \n",badframes);
     	Vec6f closest;
+    	Vec3f RealClosest;
     	closest=0*closest;
+    	RealClosest=0*RealClosest;
 		for(unsigned int i=0;i<finalgoals.size();i++){
 			Vec8i onegoal=finalgoals[i];
 			vector<Point2f> imagePoints;
@@ -742,6 +749,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[4],onegoal[5]));
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
+			Vec3f ScrewThoseOtherCoordinates=Vec3f(GOAL[3],GOAL[4],GOAL[5]);
 			printf("WOO!: (%f, %f, %f), (%f, %f, %f) \n",GOAL[0],GOAL[1],GOAL[2], GOAL[3], GOAL[4], GOAL[5]);
 			if(abs(GOAL[0]-83.75)<3){
 				printf("HERE!\n");
@@ -749,6 +757,14 @@ void Hough(IplImage *img, struct timeval *t, int display){
 					closest=GOAL;
 				}
 				badframes=0;
+				
+			}
+			if(abs(GOAL[0]-83.75)<6){
+				printf("HERE!\n");
+				if(norm(RealAverage-ScrewThoseOtherCoordinates)<norm(RealAverage-RealClosest) || RealClosest[2]<1){
+					RealClosest=ScrewThoseOtherCoordinates;
+				}
+				badframes2=0;
 				
 			}
 		
@@ -761,8 +777,19 @@ void Hough(IplImage *img, struct timeval *t, int display){
 				Average=.7*Average+.3*closest;
 			}
 		}
-		printf("closest!: (%f,%f,%f),(%f,%f,%f) \n\n",closest[0],closest[1],closest[2],closest[3],closest[4],closest[5]);
-		printf("Averaged!: (%f,%f,%f),(%f,%f,%f) \n\n",Average[0],Average[1],Average[2],Average[3],Average[4],Average[5]);
+		if(RealClosest!=RealAverage && RealClosest[0]>1){
+			if(RealAverage[2]<1){
+				RealAverage=RealClosest;
+			}
+			else if(norm(RealClosest-RealAverage)>10){
+				badframes2+=3;
+			}
+			else{
+				RealAverage=.7*RealAverage+.3*RealClosest;
+			}
+		}
+		printf("closest!: (%f,%f,%f),(%f,%f,%f) OR (%f,%f,%f)\n\n",closest[0],closest[1],closest[2],closest[3],closest[4],closest[5],RealClosest[0],RealClosest[1],RealClosest[2]);
+		printf("Averaged!: (%f,%f,%f),(%f,%f,%f) OR (%f,%f,%f)\n\n",Average[0],Average[1],Average[2],Average[3],Average[4],Average[5],RealAverage[0],RealAverage[1],RealAverage[2]);
 		
     	if(display){
     							imshow("HoughLines", cnt_img);
