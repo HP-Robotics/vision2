@@ -729,6 +729,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	}
     	if(finalgoals.size()<1){
     		badframes++;
+    		badframes2++;
     	}
     	if(badframes>10){
     		Average=0*Average;
@@ -736,7 +737,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	if(badframes2>10){
     		RealAverage=0*RealAverage;
     	}
-    	printf("badframes: %d \n",badframes);
+    	printf("badframes: %d OR %d\n",badframes,badframes2);
     	Vec6f closest;
     	Vec3f RealClosest;
     	closest=0*closest;
@@ -777,7 +778,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
 				Average=.7*Average+.3*closest;
 			}
 		}
-		if(RealClosest!=RealAverage && RealClosest[0]>1){
+		if(RealClosest!=RealAverage && RealClosest[2]>1){
 			if(RealAverage[2]<1){
 				RealAverage=RealClosest;
 			}
