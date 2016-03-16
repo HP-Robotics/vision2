@@ -1029,7 +1029,12 @@ void process_one_image(IplImage *img, char *filename)
         find_contours(img, &g_total_contour_time, g_display, g_contour_level);
 
     if (g_hough)
-        Hough(img, &g_total_hough_time, g_display);
+    {
+        if (Hough(img, &g_total_hough_time, g_display))
+            printf("Found a goal\n------\n");
+        else
+            printf("Did not find a goal\n------\n");
+    }
 
     if (g_fast)
     {

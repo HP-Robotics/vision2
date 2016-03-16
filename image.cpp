@@ -656,7 +656,7 @@ void find_contours(IplImage *img, struct timeval *t, int display, int level)
     timeradd(t, &diff, t);
 
 }
-void Hough(IplImage *img, struct timeval *t, int display){
+int Hough(IplImage *img, struct timeval *t, int display){
 
 	struct timeval start, end, diff;
     gettimeofday(&start, NULL);
@@ -665,6 +665,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     vector<Vec4i> lines;
     /* image, lines, rho, theta, threshold, min len, max line gap */
     HoughLinesP(copy, lines, 1, CV_PI/180, 15, 10, 15 );
+    int hits = 0;
     
     s=vision_snapshot_number();
     
@@ -743,6 +744,7 @@ void Hough(IplImage *img, struct timeval *t, int display){
     	closest=0*closest;
     	RealClosest=0*RealClosest;
 		for(unsigned int i=0;i<finalgoals.size();i++){
+			const char *goal_type = "NOHIT";
 			Vec8i onegoal=finalgoals[i];
 			vector<Point2f> imagePoints;
 			imagePoints.push_back(Point2f(onegoal[0],onegoal[1]));
@@ -751,23 +753,25 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
 			Vec3f ScrewThoseOtherCoordinates=Vec3f(GOAL[3],GOAL[4],GOAL[5]);
-			printf("WOO!: (%f, %f, %f), (%f, %f, %f) \n",GOAL[0],GOAL[1],GOAL[2], GOAL[3], GOAL[4], GOAL[5]);
 			if(abs(GOAL[0]-83.75)<3){
-				printf("HERE!\n");
 				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
 					closest=GOAL;
 				}
+                                goal_type = "HIT 3";
+                                hits++;
 				badframes=0;
 				
 			}
 			if(abs(GOAL[0]-83.75)<6){
-				printf("HERE!\n");
 				if(norm(RealAverage-ScrewThoseOtherCoordinates)<norm(RealAverage-RealClosest) || RealClosest[2]<1){
 					RealClosest=ScrewThoseOtherCoordinates;
 				}
+                                goal_type = "HIT 6";
+                                hits++;
 				badframes2=0;
 				
 			}
+			printf("%-5.5s: (%f, %f, %f), (%f, %f, %f) \n", goal_type, GOAL[0],GOAL[1],GOAL[2], GOAL[3], GOAL[4], GOAL[5]);
 		
 		}
 		if(closest!=Average && closest[0]>1){
@@ -782,15 +786,15 @@ void Hough(IplImage *img, struct timeval *t, int display){
 			if(RealAverage[2]<1 || RealAverage[2] > 300){
 				RealAverage=RealClosest;
 			}
-			else if(norm(RealClosest-RealAverage)>10){
+			else if(norm(RealClosest-RealAverage)>20){
 				badframes2+=3;
 			}
 			else{
 				RealAverage=.7*RealAverage+.3*RealClosest;
 			}
 		}
-		printf("closest!: (%f,%f,%f),(%f,%f,%f) OR (%f,%f,%f)\n\n",closest[0],closest[1],closest[2],closest[3],closest[4],closest[5],RealClosest[0],RealClosest[1],RealClosest[2]);
-		printf("Averaged!: (%f,%f,%f),(%f,%f,%f) OR (%f,%f,%f)\n\n",Average[0],Average[1],Average[2],Average[3],Average[4],Average[5],RealAverage[0],RealAverage[1],RealAverage[2]);
+		printf("closest!: (%f,%f,%f),(%f,%f,%f) OR (%f,%f,%f)\n",closest[0],closest[1],closest[2],closest[3],closest[4],closest[5],RealClosest[0],RealClosest[1],RealClosest[2]);
+		printf("Averaged!: (%f,%f,%f),(%f,%f,%f) OR (%f,%f,%f)\n",Average[0],Average[1],Average[2],Average[3],Average[4],Average[5],RealAverage[0],RealAverage[1],RealAverage[2]);
 		
     	if(display){
     							imshow("HoughLines", cnt_img);
@@ -804,7 +808,10 @@ void Hough(IplImage *img, struct timeval *t, int display){
 		gettimeofday(&end, NULL);
     	timersub(&end, &start, &diff);
     	timeradd(t, &diff, t);
+
+        return hits;
 }
+
 void perform_fast(IplImage *img, struct timeval *t, int display)
 {
     struct timeval start, end, diff;
