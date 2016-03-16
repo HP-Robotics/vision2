@@ -666,6 +666,10 @@ int Hough(IplImage *img, struct timeval *t, int display){
     /* image, lines, rho, theta, threshold, min len, max line gap */
     HoughLinesP(copy, lines, 1, CV_PI/180, 15, 10, 15 );
     int hits = 0;
+
+    if (lines.size() > 60)
+        return hits;
+
     
     s=vision_snapshot_number();
     
