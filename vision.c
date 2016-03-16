@@ -1106,8 +1106,8 @@ int vision_main(int argc, char *argv[])
             usleep(100 * 1000);
         }
 
-        cvWaitKey(0);
         print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_hough_time);
+        cvWaitKey(0);
         return 0;
     }
 
