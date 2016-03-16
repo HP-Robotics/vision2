@@ -46,7 +46,7 @@
     int max_v;
     int apply_fancy_logic;
 */
-filter_t g_color_filter = { 70, 255, 105, 126, 0, 115, 0};
+filter_t g_color_filter = { 40, 255, 105, 126, 0, 115, 1};
 
 //filter_t g_color_filter = { 0, 255, 0, 255, 0, 100 };
 //{ 128, 255, 0, 255, 64, 255 };
