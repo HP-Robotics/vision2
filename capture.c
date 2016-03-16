@@ -153,16 +153,16 @@ static void yuyv_to_8(void *in, void *out, int width, int height, filter_t *filt
                 lowest_non_green1 = b1 > r1 ? r1 : b1;
                 lowest_non_green2 = b2 > r2 ? r2 : b2;
 
-                if ((g1 >= 80 && 
+                if ((g1 >= 80 &&
                      y1 <= filter->max_y && y1 >= filter->min_y &&
-                     g1 > (highest_non_green1 + 3) && g1 > (lowest_non_green1 + 10) && 
+                     g1 > (highest_non_green1 + 3) && g1 > (lowest_non_green1 + 10) &&
                      (r1 + b1) < 160 &&
-                     g1 > r1 && g2 > b1))
+                     g1 > r1 && g1 > b1))
                     *q = y1;
 
-                if ((g2 >= 80 && 
+                if ((g2 >= 80 &&
                      y2 <= filter->max_y && y2 >= filter->min_y &&
-                     g2 > (highest_non_green2 + 3) && g2 > (lowest_non_green2 + 10) && 
+                     g2 > (highest_non_green2 + 3) && g2 > (lowest_non_green2 + 10) &&
                      (r2 + b2) < 160 &&
                      g2 > r2 && g2 > b2))
                     *(q + 1) = y2;
