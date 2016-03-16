@@ -778,8 +778,8 @@ void Hough(IplImage *img, struct timeval *t, int display){
 				Average=.7*Average+.3*closest;
 			}
 		}
-		if(RealClosest!=RealAverage && RealClosest[2]>1){
-			if(RealAverage[2]<1){
+		if(RealClosest!=RealAverage && RealClosest[2]>1 && RealClosest[2] < 300){
+			if(RealAverage[2]<1 || RealAverage[2] > 300){
 				RealAverage=RealClosest;
 			}
 			else if(norm(RealClosest-RealAverage)>10){
