@@ -23,6 +23,7 @@ void perform_canny(IplImage *img, struct timeval *t, double threshold, int displ
 void perform_sobel(IplImage *img, struct timeval *t, int display);
 void find_contours(IplImage *img, struct timeval *t, int display, int level);
 int Hough(IplImage *img, struct timeval *t, int display);
+void print_real_average(char *buf, int buflen);
 void perform_fast(IplImage *img, struct timeval *t, int display);
 #if defined(__cplusplus)
 };

@@ -455,7 +455,7 @@ static void usage(char *argv0)
     printf("%s [--display] [--color [--fps n] [--width n] [--height n] [fname1] [fname2]\n", argv0);
     printf("%*.*s [--blur type] [--canny rate] [--contours xx] [--fast] [--sobel xxx] [--hough xxx]\n", (int) strlen(argv0), (int) strlen(argv0), "");
     printf("%*.*s [--no-filter] [--filter]\n", (int) strlen(argv0), (int) strlen(argv0), "");
-    printf("%*.*s [--listen host:port]\n", (int) strlen(argv0), (int) strlen(argv0), "");
+    printf("%*.*s [--listen port]\n", (int) strlen(argv0), (int) strlen(argv0), "");
 }
 
 static int parse_arguments(int argc, char *argv[])
@@ -998,6 +998,7 @@ void show_yuv(int event, int x, int y, int flags, void* userdata)
 
 void process_one_image(IplImage *img, char *filename)
 {
+    static int fails_in_a_row = 0;
 
     if (g_display) {
         cvShowImage("Camera", img);
@@ -1031,9 +1032,23 @@ void process_one_image(IplImage *img, char *filename)
     if (g_hough)
     {
         if (Hough(img, &g_total_hough_time, g_display))
+        {
+            char buf[1024];
             printf("Found a goal\n------\n");
+            strcpy(buf, "GOOD ");
+            print_real_average(buf + strlen(buf), sizeof(buf) - strlen(buf));
+            socket_send_message(buf, strlen(buf));
+            fails_in_a_row = 0;
+        }
         else
+        {
+            if (fails_in_a_row++ == 3)
+            {
+                char *buf = "BAD 0 0 0";
+                socket_send_message(buf, strlen(buf));
+            }
             printf("Did not find a goal\n------\n");
+        }
     }
 
     if (g_fast)

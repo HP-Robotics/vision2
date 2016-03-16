@@ -812,6 +812,11 @@ int Hough(IplImage *img, struct timeval *t, int display){
         return hits;
 }
 
+void print_real_average(char *buf, int buflen)
+{
+    snprintf(buf, buflen, "%f %f %f", RealAverage[0], RealAverage[1], RealAverage[2]);
+}
+
 void perform_fast(IplImage *img, struct timeval *t, int display)
 {
     struct timeval start, end, diff;
