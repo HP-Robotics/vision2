@@ -668,7 +668,7 @@ int Hough(IplImage *img, struct timeval *t, int display){
     int hits = 0;
 
     if (lines.size() > 60)
-        return hits;
+        goto exit;
 
     
     s=vision_snapshot_number();
@@ -809,6 +809,8 @@ int Hough(IplImage *img, struct timeval *t, int display){
     	    cvSaveImage(vision_file_template(s, "Hough", "png"), &temp, 0);
     	    }
 		}
+
+exit:
 		gettimeofday(&end, NULL);
     	timersub(&end, &start, &diff);
     	timeradd(t, &diff, t);
