@@ -25,6 +25,7 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <pthread.h>
 
 #include <linux/videodev2.h>
 
@@ -148,6 +149,48 @@ static void compute_reticle(int *x, int *y)
     }
 }
 
+struct thread_save_info
+{
+    char *fname;
+    IplImage *img;
+    char *cmd;
+};
+
+static void save_thread_function(void *info)
+{
+    struct thread_save_info *tsi = (struct thread_save_info *) info;
+
+    cvSaveImage(tsi->fname, tsi->img, NULL);
+    cvReleaseImage(&tsi->img);
+    if (tsi->cmd)
+    {
+        system(tsi->cmd);
+        free(tsi->cmd);
+    }
+    free(tsi->fname);
+    free(tsi);
+}
+
+static void threaded_save(char *fname, IplImage *img, int dupeimg, char *cmd)
+{
+    struct thread_save_info *tsi;
+    pthread_t thread;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+
+    tsi = malloc(sizeof(*tsi));
+    tsi->fname = strdup(fname);
+    if (dupeimg)
+        tsi->img = cvCloneImage(img);
+    else
+        tsi->img = img;
+    if (cmd)
+        tsi->cmd = strdup(cmd);
+    else
+        tsi->cmd = NULL;
+    pthread_create(&thread, &attr, (void * (*)(void *)) save_thread_function, (void *) tsi);
+}
+
 /* Processing for stream to driver, saving shots */
 static void save_images(capture_t *c, void *raw)
 {
@@ -181,7 +224,7 @@ static void save_images(capture_t *c, void *raw)
             g_watch_count++;
 
             sprintf(fname, "%s/img%05d.png", g_watch_this_dir, g_watch_count);
-            cvSaveImage(fname, rotated, NULL);
+            threaded_save(fname, rotated, 1, NULL);
 
             sprintf(fname, "%s/raw/img%05d.yuv.raw", g_watch_this_dir, g_watch_count);
             fp = fopen(fname, "w");
@@ -205,16 +248,12 @@ static void save_images(capture_t *c, void *raw)
         cvLine(rotated, cvPoint(x - radius, y), cvPoint(x - radius - radius * 2, y), black, 2,8,0);
         cvLine(rotated, cvPoint(x + radius, y), cvPoint(x + radius + radius * 2, y), black, 2,8,0);
 
-        cvSaveImage(fname, rotated, NULL);
-        cvReleaseImage(&rotated);
-
         {
             char hackbuf[1024];
             sprintf(hackbuf, "mv %s/img%03d.jpg %s/snapshot.jpg", g_streaming, g_stream_count, g_streaming);
-            system(hackbuf);
+            threaded_save(fname, rotated, 0, hackbuf);
         }
     }
-    /* JPW TODO - Save to /var/www/html/shots for a period of time */
     free(data);
     cvReleaseImageHeader(&img);
 }
@@ -1042,7 +1081,7 @@ void process_one_image(IplImage *img, char *filename)
         }
         else
         {
-            if (fails_in_a_row++ == 3)
+            if (fails_in_a_row++ > 2)
             {
                 char *buf = "BAD 0 0 0";
                 socket_send_message(buf, strlen(buf));
