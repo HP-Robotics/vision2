@@ -757,6 +757,9 @@ int Hough(IplImage *img, struct timeval *t, int display){
 			imagePoints.push_back(Point2f(onegoal[6],onegoal[7]));
 			Vec6f GOAL=GivePos(imagePoints);
 			Vec3f ScrewThoseOtherCoordinates=Vec3f(GOAL[3],GOAL[4],GOAL[5]);
+			//float onetrueangle=50.67447325;
+			float onetruesine=.7735579454;
+			float onetrueheight=(GOAL[5]-GOAL[3])*onetruesine;
 			if(abs(GOAL[0]-83.75)<3){
 				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
 					closest=GOAL;
@@ -766,7 +769,7 @@ int Hough(IplImage *img, struct timeval *t, int display){
 				badframes=0;
 				
 			}
-			if(abs(GOAL[0]-83.75)<6){
+			if(abs(GOAL[0]-onetrueheight)<6){
 				if(norm(RealAverage-ScrewThoseOtherCoordinates)<norm(RealAverage-RealClosest) || RealClosest[2]<1){
 					RealClosest=ScrewThoseOtherCoordinates;
 				}
