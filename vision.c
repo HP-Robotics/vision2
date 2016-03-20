@@ -213,6 +213,7 @@ static void save_images(capture_t *c, void *raw)
     void *data = NULL;
     img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
     data = cvAlloc(c->width * c->height * g_colors);
+    memset(data, 0, c->width * c->height * g_colors);
     capture_yuv_to_rgb(raw, data, c->width, c->height, g_colors, NULL);
     cvSetData(img, data, c->width * g_colors);
 
@@ -288,6 +289,7 @@ static IplImage *vision_retrieve(capture_t *c)
 
         img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
         data = cvAlloc(c->width * c->height * g_colors);
+        memset(data, 0, c->width * c->height * g_colors);
         if (capture_yuv_to_rgb(i, data, c->width, c->height, g_colors, filter))
         {
             fprintf(stderr, "Unexpected conversion error\n");
@@ -404,6 +406,7 @@ IplImage * vision_from_raw_file(char *filename)
     fclose(fp);
 
     data = cvAlloc(width * height * g_colors);
+    memset(data, 0, width * height * g_colors);
     if (capture_yuv_to_rgb(raw_data, data, width, height, g_colors, g_filter ? &g_color_filter : NULL))
         return NULL;
 

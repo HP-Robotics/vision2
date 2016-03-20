@@ -522,6 +522,7 @@ void * capture_retrieve(capture_t *c, int bytes, filter_t *filter, int raw)
     }
 
     data = cvAlloc(c->width * c->height * bytes);
+    memset(data, 0, c->width * c->height * bytes);
     if (bytes == 3)
     {
         yuyv_to_rgb24 (c->last_frame_ptr, data, c->width, c->height, filter);
