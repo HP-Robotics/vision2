@@ -758,8 +758,9 @@ int Hough(IplImage *img, struct timeval *t, int display){
 			Vec6f GOAL=GivePos(imagePoints);
 			Vec3f ScrewThoseOtherCoordinates=Vec3f(GOAL[3],GOAL[4],GOAL[5]);
 			//float onetrueangle=48;
-			float onetruesine=.7735579454;
-			float onetrueheight=(GOAL[5]-GOAL[3])*onetruesine;
+			float onetruesine=.74314482;
+			float onetruecosine=.669130606;
+			float onetrueheight=(GOAL[5]*onetruesine) - (GOAL[3]*onetruecosine);
 			if(abs(GOAL[0]-83.75)<3){
 				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
 					closest=GOAL;
@@ -769,7 +770,7 @@ int Hough(IplImage *img, struct timeval *t, int display){
 				badframes=0;
 				
 			}
-			if(abs(GOAL[0]-onetrueheight)<6){
+			if(abs(onetrueheight - 83.75)<6){
 				if(norm(RealAverage-ScrewThoseOtherCoordinates)<norm(RealAverage-RealClosest) || RealClosest[2]<1){
 					RealClosest=ScrewThoseOtherCoordinates;
 				}
@@ -778,7 +779,7 @@ int Hough(IplImage *img, struct timeval *t, int display){
 				badframes2=0;
 				
 			}
-			printf("%-5.5s: (%f, %f, %f), (%f, %f, %f) \n", goal_type, GOAL[0],GOAL[1],GOAL[2], GOAL[3], GOAL[4], GOAL[5]);
+			printf("%-5.5s: (%f, %f, %f), (%f, %f, %f) (oth %f) \n", goal_type, GOAL[3], GOAL[4],GOAL[5], GOAL[0], GOAL[1], GOAL[2], onetrueheight);
 		
 		}
 		if(closest!=Average && closest[0]>1){
@@ -800,8 +801,8 @@ int Hough(IplImage *img, struct timeval *t, int display){
 				RealAverage=.7*RealAverage+.3*RealClosest;
 			}
 		}
-		printf("closest!: (%f,%f,%f),(%f,%f,%f) OR (%f,%f,%f)\n",closest[0],closest[1],closest[2],closest[3],closest[4],closest[5],RealClosest[0],RealClosest[1],RealClosest[2]);
-		printf("Averaged!: (%f,%f,%f),(%f,%f,%f) OR (%f,%f,%f)\n",Average[0],Average[1],Average[2],Average[3],Average[4],Average[5],RealAverage[0],RealAverage[1],RealAverage[2]);
+		printf("close: (%f, %f, %f)\n",RealClosest[0],RealClosest[1],RealClosest[2]);
+		printf("avrge: (%f, %f, %f)\n",RealAverage[0],RealAverage[1],RealAverage[2]);
 		
     	if(display){
     							imshow("HoughLines", cnt_img);
