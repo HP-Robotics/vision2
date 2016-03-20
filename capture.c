@@ -30,6 +30,7 @@
 #include <sys/ioctl.h>
 
 #include <linux/videodev2.h>
+#include <opencv2/core/core_c.h>
 
 #include "capture.h"
 #include "vision.h"
@@ -515,12 +516,12 @@ void * capture_retrieve(capture_t *c, int bytes, filter_t *filter, int raw)
 
     if (raw)
     {
-        data = calloc(1, c->width * c->height * 2);
+        data = cvAlloc(c->width * c->height * 2);
         memcpy(data, c->last_frame_ptr, c->width * c->height * 2);
         return data;
     }
 
-    data = calloc(1, c->width * c->height * bytes);
+    data = cvAlloc(c->width * c->height * bytes);
     if (bytes == 3)
     {
         yuyv_to_rgb24 (c->last_frame_ptr, data, c->width, c->height, filter);
@@ -531,7 +532,7 @@ void * capture_retrieve(capture_t *c, int bytes, filter_t *filter, int raw)
     }
     else
     {
-        free(data);
+        cvFree(&data);
         data = NULL;
     }
 

@@ -212,7 +212,7 @@ static void save_images(capture_t *c, void *raw)
     IplImage *img = NULL;
     void *data = NULL;
     img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
-    data = calloc(1, c->width * c->height * g_colors);
+    data = cvAlloc(c->width * c->height * g_colors);
     capture_yuv_to_rgb(raw, data, c->width, c->height, g_colors, NULL);
     cvSetData(img, data, c->width * g_colors);
 
@@ -271,8 +271,7 @@ static void save_images(capture_t *c, void *raw)
             cvReleaseImage(&rotated);
         }
     }
-    free(data);
-    cvReleaseImageHeader(&img);
+    cvReleaseImage(&img);
 }
 
 static IplImage *vision_retrieve(capture_t *c)
@@ -288,15 +287,15 @@ static IplImage *vision_retrieve(capture_t *c)
         save_images(c, i);
 
         img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
-        data = calloc(1, c->width * c->height * g_colors);
+        data = cvAlloc(c->width * c->height * g_colors);
         if (capture_yuv_to_rgb(i, data, c->width, c->height, g_colors, filter))
         {
             fprintf(stderr, "Unexpected conversion error\n");
-            free(i);
-            free(data);
+            cvFree(&i);
+            cvFree(&data);
             return NULL;
         }
-        free(i);
+        cvFree(&i);
 
         cvSetData(img, data, c->width * g_colors);
     }
@@ -305,14 +304,6 @@ static IplImage *vision_retrieve(capture_t *c)
 
     return img;
 }
-
-static void vision_release(capture_t *c, IplImage **img)
-{
-    void *i = (*img)->imageData;
-    cvReleaseImageHeader(img);
-    free(i);
-}
-
 
 static int compute_size(long size, int *width, int *height)
 {
@@ -408,17 +399,17 @@ IplImage * vision_from_raw_file(char *filename)
         return NULL;
     }
 
-    raw_data = calloc(1, s.st_size);
+    raw_data = cvAlloc(s.st_size);
     fread(raw_data, 1, s.st_size, fp);
     fclose(fp);
 
-    data = calloc(1, width * height * g_colors);
+    data = cvAlloc(width * height * g_colors);
     if (capture_yuv_to_rgb(raw_data, data, width, height, g_colors, g_filter ? &g_color_filter : NULL))
         return NULL;
 
     img = cvCreateImageHeader(cvSize(width, height),  IPL_DEPTH_8U, g_colors);
     cvSetData(img, data, width * g_colors);
-    free(raw_data);
+    cvFree(&raw_data);
 
     return img;
 }
@@ -459,7 +450,7 @@ void vision_print_yuv(char *filename, int x, int y)
         return;
     }
 
-    raw_data = calloc(1, s.st_size);
+    raw_data = cvAlloc(s.st_size);
     fread(raw_data, 1, s.st_size, fp);
     fclose(fp);
 
@@ -491,7 +482,7 @@ void vision_print_yuv(char *filename, int x, int y)
         fprintf(stderr, "Y %d, U %d, V %d, g %d, r %d, b %d\n", y2, u, v, g2, b2, r2);
 
 
-    free(raw_data);
+    cvFree(&raw_data);
 }
 
 
@@ -1131,7 +1122,7 @@ static void process_vision_queue(void *info)
                 process_one_image(img, NULL);
             else
                 fprintf(stderr, "ERROR: Dropping a frame we cannot get to (%d in queue)!\n", left);
-            vision_release(&g_cam, &img);
+            cvReleaseImage(&img);
         }
         sched_yield();
     }
