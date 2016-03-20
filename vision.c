@@ -1159,6 +1159,7 @@ int vision_main(int argc, char *argv[])
         {
             IplImage *in_img;
             IplImage *img;
+            char buf[128];
             printf("%d: %s\n", i, argv[i]);
             g_count++;
             if (strlen(argv[i]) >= 3 && strcmp(argv[i] + strlen(argv[i]) - 3, "raw") == 0)
@@ -1176,6 +1177,8 @@ int vision_main(int argc, char *argv[])
             }
             process_one_image(img, argv[i]);
             cvReleaseImage(&img);
+            print_real_average(buf, sizeof(buf));
+            printf("Reported: %s\n", buf);
             cvWaitKey(1);
             usleep(100 * 1000);
         }

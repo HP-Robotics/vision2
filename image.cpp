@@ -33,6 +33,7 @@
 using namespace cv;
 int badframes2=0;
 Vec3f RealAverage=Vec3f(0,0,0);
+Vec3f RealAverage2=Vec3f(0,0,0);
 
 Vec6f GivePos(vector<Point2f> imagePoints)
 {
@@ -716,10 +717,13 @@ int Hough(IplImage *img, struct timeval *t, int display){
     	}
     	if(badframes2>10){
     		RealAverage=0*RealAverage;
+    		RealAverage2=0*RealAverage2;
     	}
         printf("badframes2: %d\n", badframes2);
     	Vec3f RealClosest;
+    	Vec3f ClosestPart2;
     	RealClosest=0*RealClosest;
+    	ClosestPart2=0*ClosestPart2;
 		for(unsigned int i=0;i<finalgoals.size();i++){
 			const char *goal_type = "NOHIT";
 			Vec8i onegoal=finalgoals[i];
@@ -738,6 +742,7 @@ int Hough(IplImage *img, struct timeval *t, int display){
 			if(abs(onetrueheight - 83.75)<6){
 				if(norm(RealAverage-ScrewThoseOtherCoordinates)<norm(RealAverage-RealClosest) || RealClosest[2]<1){
 					RealClosest=ScrewThoseOtherCoordinates;
+                                        ClosestPart2=Vec3f(GOAL[0], GOAL[1], GOAL[2]);
 				}
                                 goal_type = "HIT 6";
                                 hits++;
@@ -750,16 +755,18 @@ int Hough(IplImage *img, struct timeval *t, int display){
 		if(RealClosest!=RealAverage && RealClosest[2]>1 && RealClosest[2] < 300){
 			if(RealAverage[2]<1 || RealAverage[2] > 300){
 				RealAverage=RealClosest;
+				RealAverage2=ClosestPart2;
 			}
 			else if(norm(RealClosest-RealAverage)>20){
 				badframes2+=3;
 			}
 			else{
 				RealAverage=.7*RealAverage+.3*RealClosest;
+				RealAverage2=.7*RealAverage2+.3*ClosestPart2;
 			}
 		}
-		printf("close: (%f, %f, %f)\n",RealClosest[0],RealClosest[1],RealClosest[2]);
-		printf("avrge: (%f, %f, %f)\n",RealAverage[0],RealAverage[1],RealAverage[2]);
+		printf("close: (%f, %f, %f), (%f, %f, %f)\n",RealClosest[0],RealClosest[1],RealClosest[2],ClosestPart2[0],ClosestPart2[1],ClosestPart2[2]);
+		printf("avrge: (%f, %f, %f), (%f, %f, %f)\n",RealAverage[0],RealAverage[1],RealAverage[2],RealAverage2[0],RealAverage2[1],RealAverage2[2]);
 		
     	if(display){
     							imshow("HoughLines", cnt_img);
@@ -781,7 +788,11 @@ exit:
 
 void print_real_average(char *buf, int buflen)
 {
-    snprintf(buf, buflen, "%f %f %f", RealAverage[0], RealAverage[1], RealAverage[2]);
+    #define PI 3.14159265
+    double visible_width = RealAverage[1] + (-1 * RealAverage2[1]);
+    double theta = acos (visible_width / 20.0) * 180.0 / PI;
+
+    snprintf(buf, buflen, "%f %f %f %f", theta, RealAverage[1], RealAverage[2], RealAverage2[1]);
 }
 
 void perform_fast(IplImage *img, struct timeval *t, int display)
