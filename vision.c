@@ -170,7 +170,7 @@ static IplImage *pop_image(int *left)
         if (g_queue_index > 0)
         {
             memmove(&g_processing_queue[0], &g_processing_queue[1],
-                (g_queue_index - 1) * sizeof(g_processing_queue[0]));
+                g_queue_index * sizeof(g_processing_queue[0]));
         }
         g_queue_index--;
     }
