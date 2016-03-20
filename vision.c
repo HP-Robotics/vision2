@@ -1172,6 +1172,7 @@ int vision_main(int argc, char *argv[])
                 return -1;
             }
             process_one_image(img, argv[i]);
+            cvReleaseImage(&img);
             cvWaitKey(1);
             usleep(100 * 1000);
         }
