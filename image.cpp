@@ -31,9 +31,7 @@
 
 
 using namespace cv;
-Vec6f Average=Vec6f(0,0,0,0,0,0);
-    int badframes=0;
-    int badframes2=0;
+int badframes2=0;
 Vec3f RealAverage=Vec3f(0,0,0);
 
 Vec6f GivePos(vector<Point2f> imagePoints)
@@ -66,38 +64,19 @@ Vec6f GivePos(vector<Point2f> imagePoints)
     cv::Mat tvec(1,3,cv::DataType<double>::type);
     cv::solvePnP(objectPoints, imagePoints, cameraMatrix, distCoeffs, rvec, tvec);
 
-    Mat rotMatrix(3,3,DataType<double>::type);
-    cv::Rodrigues(rvec,rotMatrix);
+    vector<Point3f> objectPoints2;
+    //FIXME - get these coordinates right...
+    objectPoints2.push_back(Point3f(0,-20,0));
+    objectPoints2.push_back(Point3f(12,-20,0));
+    objectPoints2.push_back(Point3f(12,0,0));
+    objectPoints2.push_back(Point3f(0,0,0));
 
-    /* Formula is s [u/v/1] = M(R+t) [X/Y/Z/1] 
-       Let's call [u/v/1] 'o', and use u=0, v=0
-       Let's call [X/Y/Z/1] 'O'
-       So then it is s o = MO(R+t)
-       Which can be:
-         M^-1 s o = O(R+t)
-       or 
-         M^-1 R^-1 s o = O + tR^-1
-       or
-         O = M^-1 R^-1 s o - tR^-1
-        */
+    cv::Mat rvec2(1,3,cv::DataType<double>::type);
+    cv::Mat tvec2(1,3,cv::DataType<double>::type);
+    cv::solvePnP(objectPoints2, imagePoints, cameraMatrix, distCoeffs, rvec2, tvec2);
 
-
-    Mat outMatrix(1,4,DataType<double>::type);
-    outMatrix=Mat::zeros(1,4,DataType<double>::type);
-
-    cv::Mat origin(3, 1, DataType<double>::type);
-    origin = Mat::zeros(3, 1, DataType<double>::type);
-    origin.at<double>(2) = 1;
-
-    cv::Mat tempMat1, tempMat2;
-
-    tempMat1 = cameraMatrix.inv() * rotMatrix.inv() * origin;
-
-    tempMat2 = rotMatrix.inv() * tvec;
-
-    outMatrix = tempMat1 - tempMat2;
-
-    return Vec6f(outMatrix.at<double>(0),outMatrix.at<double>(1),outMatrix.at<double>(2),tvec.at<double>(0),tvec.at<double>(1),tvec.at<double>(2));
+    return Vec6f(tvec2.at<double>(0),tvec2.at<double>(1),tvec2.at<double>(2),
+                tvec.at<double>(0),tvec.at<double>(1),tvec.at<double>(2));
 }
 
 vector<Vec4i> CullLines(vector<Vec4i> lines, float angle,int distance, int gap){
@@ -733,19 +712,13 @@ int Hough(IplImage *img, struct timeval *t, int display){
     		line(cnt_img,Point(onegoal[4],onegoal[5]),Point(onegoal[6],onegoal[7]),Scalar(255,255,0),1,4);
     	}
     	if(finalgoals.size()<1){
-    		badframes++;
     		badframes2++;
-    	}
-    	if(badframes>10){
-    		Average=0*Average;
     	}
     	if(badframes2>10){
     		RealAverage=0*RealAverage;
     	}
-    	printf("badframes: %d OR %d\n",badframes,badframes2);
-    	Vec6f closest;
+        printf("badframes2: %d\n", badframes2);
     	Vec3f RealClosest;
-    	closest=0*closest;
     	RealClosest=0*RealClosest;
 		for(unsigned int i=0;i<finalgoals.size();i++){
 			const char *goal_type = "NOHIT";
@@ -761,15 +734,7 @@ int Hough(IplImage *img, struct timeval *t, int display){
 			float onetruesine=.74314482;
 			float onetruecosine=.669130606;
 			float onetrueheight=(GOAL[5]*onetruesine) - (GOAL[3]*onetruecosine);
-			if(abs(GOAL[0]-83.75)<3){
-				if(norm(Average-GOAL)<norm(Average-closest) || closest[0]<1){
-					closest=GOAL;
-				}
-                                goal_type = "HIT 3";
-                                hits++;
-				badframes=0;
-				
-			}
+			float secondtrueheight=(GOAL[2]*onetruesine) - (GOAL[0]*onetruecosine);
 			if(abs(onetrueheight - 83.75)<6){
 				if(norm(RealAverage-ScrewThoseOtherCoordinates)<norm(RealAverage-RealClosest) || RealClosest[2]<1){
 					RealClosest=ScrewThoseOtherCoordinates;
@@ -779,16 +744,8 @@ int Hough(IplImage *img, struct timeval *t, int display){
 				badframes2=0;
 				
 			}
-			printf("%-5.5s: (%f, %f, %f), (%f, %f, %f) (oth %f) \n", goal_type, GOAL[3], GOAL[4],GOAL[5], GOAL[0], GOAL[1], GOAL[2], onetrueheight);
+			printf("%-5.5s: (%f, %f, %f), (%f, %f, %f) (oth %f, 2th %f) \n", goal_type, GOAL[3], GOAL[4],GOAL[5], GOAL[0], GOAL[1], GOAL[2], onetrueheight, secondtrueheight);
 		
-		}
-		if(closest!=Average && closest[0]>1){
-			if(abs(Average[0]-83.75)>3){
-				Average=closest;
-			}
-			else{
-				Average=.7*Average+.3*closest;
-			}
 		}
 		if(RealClosest!=RealAverage && RealClosest[2]>1 && RealClosest[2] < 300){
 			if(RealAverage[2]<1 || RealAverage[2] > 300){
