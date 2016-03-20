@@ -149,48 +149,6 @@ static void compute_reticle(int *x, int *y)
     }
 }
 
-struct thread_save_info
-{
-    char *fname;
-    IplImage *img;
-    char *cmd;
-};
-
-static void save_thread_function(void *info)
-{
-    struct thread_save_info *tsi = (struct thread_save_info *) info;
-
-    cvSaveImage(tsi->fname, tsi->img, NULL);
-    cvReleaseImage(&tsi->img);
-    if (tsi->cmd)
-    {
-        system(tsi->cmd);
-        free(tsi->cmd);
-    }
-    free(tsi->fname);
-    free(tsi);
-}
-
-static void threaded_save(char *fname, IplImage *img, int dupeimg, char *cmd)
-{
-    struct thread_save_info *tsi;
-    pthread_t thread;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-
-    tsi = malloc(sizeof(*tsi));
-    tsi->fname = strdup(fname);
-    if (dupeimg)
-        tsi->img = cvCloneImage(img);
-    else
-        tsi->img = img;
-    if (cmd)
-        tsi->cmd = strdup(cmd);
-    else
-        tsi->cmd = NULL;
-    pthread_create(&thread, &attr, (void * (*)(void *)) save_thread_function, (void *) tsi);
-}
-
 /* Processing for stream to driver, saving shots */
 static void save_images(capture_t *c, void *raw)
 {
@@ -224,7 +182,7 @@ static void save_images(capture_t *c, void *raw)
             g_watch_count++;
 
             sprintf(fname, "%s/img%05d.png", g_watch_this_dir, g_watch_count);
-            threaded_save(fname, rotated, 1, NULL);
+            cvSaveImage(fname, rotated, NULL);
 
             sprintf(fname, "%s/raw/img%05d.yuv.raw", g_watch_this_dir, g_watch_count);
             fp = fopen(fname, "w");
@@ -251,7 +209,9 @@ static void save_images(capture_t *c, void *raw)
         {
             char hackbuf[1024];
             sprintf(hackbuf, "mv %s/img%03d.jpg %s/snapshot.jpg", g_streaming, g_stream_count, g_streaming);
-            threaded_save(fname, rotated, 0, hackbuf);
+            cvSaveImage(fname, rotated, NULL);
+            system(hackbuf);
+            cvReleaseImage(&rotated);
         }
     }
     free(data);
