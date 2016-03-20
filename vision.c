@@ -55,6 +55,8 @@ filter_t g_color_filter = { 40, 255, 105, 126, 0, 115, 1};
 /* 1 color for mono, 3 colors for rgb */
 int g_colors = 1;
 
+int g_running = 1;
+
 /* Toggles for whether or not to do and display various things */
 int g_display = 0;
 int g_filter = 1;
@@ -128,6 +130,61 @@ camera_default_t g_camera_defaults[] =
      { "Brightness", 30 } ,
 
 };
+
+
+#define MAX_QUEUE_SIZE      10
+IplImage *g_processing_queue[MAX_QUEUE_SIZE];
+int g_queue_index = -1;
+pthread_mutex_t g_queue_mutex;
+
+static void push_image(IplImage *img)
+{
+    if (pthread_mutex_lock(&g_queue_mutex))
+        perror("pthread_mutex_lock");
+
+    if (g_queue_index >= MAX_QUEUE_SIZE)
+        fprintf(stderr, "Error: image queue full.\n");
+    else
+    {
+        g_queue_index++;
+        g_processing_queue[g_queue_index] = img;
+    }
+   
+    if (pthread_mutex_unlock(&g_queue_mutex))
+        perror("pthread_mutex_unlock");
+}
+
+static IplImage *pop_image(int *left)
+{
+    IplImage *img = NULL;
+
+    if (pthread_mutex_lock(&g_queue_mutex))
+        perror("pthread_mutex_lock");
+   
+    if (left)
+        *left = g_queue_index;
+
+    if (g_queue_index >= 0)
+    {
+        img = g_processing_queue[0];
+        if (g_queue_index > 0)
+        {
+            memmove(&g_processing_queue[0], &g_processing_queue[1],
+                (g_queue_index - 1) * sizeof(g_processing_queue[0]));
+        }
+        g_queue_index--;
+    }
+
+    if (pthread_mutex_unlock(&g_queue_mutex))
+        perror("pthread_mutex_unlock");
+
+    return img;
+}
+
+static void queue_init(void)
+{
+    pthread_mutex_init(&g_queue_mutex, NULL);
+}
 
 
 static void compute_reticle(int *x, int *y)
@@ -1061,10 +1118,33 @@ void process_one_image(IplImage *img, char *filename)
 
 }
 
+static void process_vision_queue(void *info)
+{
+    while(g_running)
+    {
+        IplImage *img;
+        int left;
+        img = pop_image(&left);
+        if (img)
+        {
+            if (left < 3)
+                process_one_image(img, NULL);
+            else
+                fprintf(stderr, "ERROR: Dropping a frame we cannot get to (%d in queue)!\n", left);
+            vision_release(&g_cam, &img);
+        }
+        sched_yield();
+    }
+}
+
 int vision_main(int argc, char *argv[])
 {
     struct timeval start, end, diff;
     struct timeval main_start;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_t thread;
+    int rc;
 
     int discard = 0;
 
@@ -1106,7 +1186,6 @@ int vision_main(int argc, char *argv[])
         }
 
         print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_hough_time);
-        cvWaitKey(0);
         return 0;
     }
 
@@ -1122,7 +1201,16 @@ int vision_main(int argc, char *argv[])
     setup_windows();
     setup_camera_controls();
 
-    while (1)
+    queue_init();
+
+    rc = pthread_create(&thread, &attr, (void * (*)(void *))process_vision_queue, NULL);
+    if (rc)
+    {
+        perror("pthread create");
+        g_running = 0;
+    }
+
+    while (g_running)
     {
         int c;
 
@@ -1154,8 +1242,7 @@ int vision_main(int argc, char *argv[])
             timersub(&end, &start, &diff);
             timeradd(&g_total_retrieve_time, &diff, &g_total_retrieve_time);
 
-            process_one_image(img, NULL);
-            vision_release(&g_cam, &img);
+            push_image(img);
 
             g_count++;
 
@@ -1170,6 +1257,8 @@ int vision_main(int argc, char *argv[])
         else
             sched_yield();
     }
+
+    g_running = 0;
 
     gettimeofday(&end, NULL);
     timersub(&end, &main_start, &diff);
