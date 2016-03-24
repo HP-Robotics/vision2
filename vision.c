@@ -368,6 +368,7 @@ static void stop_watching(void)
 
 
 // Our caller guarantees us a null terminator...
+void clear_average(void);
 static void report_info(int s, char *buf, int len, void *from, int from_len)
 {
     printf("Got '%s'\n", buf);
@@ -375,6 +376,8 @@ static void report_info(int s, char *buf, int len, void *from, int from_len)
         g_rpm = atoi(buf + 4);
     if (g_watching && len >= 5 && memcmp(buf, "WATCH", 5) == 0)
         start_watching();
+    if (len >= 5 && memcmp(buf, "CLEAR", 5) == 0)
+        clear_average();
 }
 
 IplImage * vision_from_raw_file(char *filename)

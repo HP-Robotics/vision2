@@ -746,7 +746,8 @@ int Hough(IplImage *img, struct timeval *t, int display){
 				}
                                 goal_type = "HIT 6";
                                 hits++;
-				badframes2=0;
+                                
+
 				
 			}
 			printf("%-5.5s: (%f, %f, %f), (%f, %f, %f) (oth %f, 2th %f) \n", goal_type, GOAL[3], GOAL[4],GOAL[5], GOAL[0], GOAL[1], GOAL[2], onetrueheight, secondtrueheight);
@@ -756,15 +757,19 @@ int Hough(IplImage *img, struct timeval *t, int display){
 			if(RealAverage[2]<1 || RealAverage[2] > 300){
 				RealAverage=RealClosest;
 				RealAverage2=ClosestPart2;
+				badframes2=0;
 			}
 			else if(norm(RealClosest-RealAverage)>20){
 				badframes2+=3;
 			}
 			else{
-				RealAverage=.7*RealAverage+.3*RealClosest;
-				RealAverage2=.7*RealAverage2+.3*ClosestPart2;
+				RealAverage=.5*RealAverage+.5*RealClosest;
+				RealAverage2=.5*RealAverage2+.5*ClosestPart2;
+				badframes2=0;
 			}
 		}
+		double outangle=acos((RealAverage[1]-RealAverage2[1])/20.0)*180.0/3.1415926535;
+		printf("angle: %f\n",outangle);
 		printf("close: (%f, %f, %f), (%f, %f, %f)\n",RealClosest[0],RealClosest[1],RealClosest[2],ClosestPart2[0],ClosestPart2[1],ClosestPart2[2]);
 		printf("avrge: (%f, %f, %f), (%f, %f, %f)\n",RealAverage[0],RealAverage[1],RealAverage[2],RealAverage2[0],RealAverage2[1],RealAverage2[2]);
 		
@@ -785,14 +790,28 @@ exit:
 
         return hits;
 }
-
+extern "C" {
+void clear_average(){
+    RealAverage=0*RealAverage;
+    RealAverage2=0*RealAverage2;
+}
+}
 void print_real_average(char *buf, int buflen)
 {
     #define PI 3.14159265
+    float onetruesine=.74314482;
+    float onetruecosine=.669130606;
     double visible_width = RealAverage[1] + (-1 * RealAverage2[1]);
-    double theta = acos (visible_width / 20.0) * 180.0 / PI;
-
-    snprintf(buf, buflen, "%f %f %f %f", theta, RealAverage[1], RealAverage[2], RealAverage2[1]);
+    double theta;
+    double goal_edge_diff=onetruecosine*RealAverage[2]+onetruesine*RealAverage[0]-onetruecosine*RealAverage2[2]-onetruesine*RealAverage2[0];
+    double shot_distance_avg=(goal_edge_diff+2*(onetruecosine*RealAverage2[2]+onetruesine*RealAverage2[0]))/2;
+    if(goal_edge_diff>0){
+    	theta = acos (visible_width / 20.0) * 180.0 / PI;
+    }
+    else{
+        theta = -acos (visible_width /20.0) *180.0/PI;
+    }
+    snprintf(buf, buflen, "%f %f %f %f", theta, RealAverage[1], shot_distance_avg, RealAverage2[1]);
 }
 
 void perform_fast(IplImage *img, struct timeval *t, int display)
