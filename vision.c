@@ -91,7 +91,7 @@ static void stop_watching(void);
 
 long g_count = 0;
 
-int g_rpm = 3300;
+int g_rpm = 3700;
 
 capture_t g_cam;
 
@@ -189,17 +189,17 @@ static void queue_init(void)
 
 static void compute_reticle(int *x, int *y)
 {
-    if (g_rpm == 3300)
+    if (g_rpm == 3700)
     {
         *x = 229;
         *y = 447;
     }
-    else if (g_rpm == 3200)
+    else if (g_rpm == 3600)
     {
         *x = 221;
         *y = 324;
     }
-    else if (g_rpm > 3400)
+    else if (g_rpm >= 3800)
     {
         *x = 210;
         *y = 163;
@@ -1097,7 +1097,7 @@ void process_one_image(IplImage *img, char *filename)
         {
             if (fails_in_a_row++ > 2)
             {
-                char *buf = "BAD 0 0 0";
+                char *buf = "BAD 0 0 0 0";
                 socket_send_message(buf, strlen(buf));
             }
             printf("Did not find a goal\n------\n");
