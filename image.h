@@ -25,6 +25,7 @@ void find_contours(IplImage *img, struct timeval *t, int display, int level);
 int Hough(IplImage *img, struct timeval *t, int display);
 void print_real_average(char *buf, int buflen);
 void perform_fast(IplImage *img, struct timeval *t, int display);
+double image_goal_distance();
 #if defined(__cplusplus)
 };
 #endif

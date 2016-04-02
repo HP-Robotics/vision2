@@ -814,6 +814,14 @@ void print_real_average(char *buf, int buflen)
     snprintf(buf, buflen, "%f %f %f %f", theta, RealAverage[1], shot_distance_avg, RealAverage2[1]);
 }
 
+double image_goal_distance(void)
+{
+    float onetruesine=.74314482;
+    float onetruecosine=.669130606;
+    double goal_edge_diff=onetruecosine*RealAverage[2]+onetruesine*RealAverage[0]-onetruecosine*RealAverage2[2]-onetruesine*RealAverage2[0];
+    return (goal_edge_diff+2*(onetruecosine*RealAverage2[2]+onetruesine*RealAverage2[0]))/2;
+}
+
 void perform_fast(IplImage *img, struct timeval *t, int display)
 {
     struct timeval start, end, diff;

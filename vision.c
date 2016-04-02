@@ -92,6 +92,7 @@ static void stop_watching(void);
 long g_count = 0;
 
 int g_rpm = 3700;
+int g_good = 0;
 
 capture_t g_cam;
 
@@ -187,22 +188,32 @@ static void queue_init(void)
 }
 
 
-static void compute_reticle(int *x, int *y)
+static void draw_reticle(IplImage *img, int x, int y, int radius)
 {
-    if (g_rpm == 3700)
+    CvScalar black = cvScalar(0,0,0,0);
+
+    cvCircle(img, cvPoint(x,y), radius, black, 2, 8, 0);
+    cvLine(img, cvPoint(x, y - radius), cvPoint(x, y - radius - radius*2), black, 2,8,0);
+    cvLine(img, cvPoint(x, y + radius), cvPoint(x, y + radius + radius*2), black, 2,8,0);
+    cvLine(img, cvPoint(x - radius, y), cvPoint(x - radius - radius * 2, y), black, 2,8,0);
+    cvLine(img, cvPoint(x + radius, y), cvPoint(x + radius + radius * 2, y), black, 2,8,0);
+}
+
+static void draw_reticles(IplImage *img)
+{
+    if (g_good)
     {
-        *x = 229;
-        *y = 447;
+        double d = image_goal_distance();
+        draw_reticle(img, (int)((d*-0.3157894737)+244), (int)((d*-4.712719298) + 669.5), 20);
+	//x=-0.3157894737*d+244
+	//y=-4.712719298*d+669.5
+        
     }
-    else if (g_rpm == 3600)
+    else
     {
-        *x = 221;
-        *y = 324;
-    }
-    else if (g_rpm >= 3800)
-    {
-        *x = 210;
-        *y = 163;
+        draw_reticle(img, 229, 447, 10);
+        draw_reticle(img, 221, 324, 10);
+        draw_reticle(img, 210, 163, 10);
     }
 }
 
@@ -221,13 +232,6 @@ static void save_images(capture_t *c, void *raw)
     {
         IplImage *rotated;
         char fname[1024];
-        int radius = 20;
-        int x, y;
-
-        compute_reticle(&x, &y);
-        CvScalar black = cvScalar(0,0,0,0);
-
-        compute_reticle(&x, &y);
 
         rotated = cvCreateImage(cvSize(img->height, img->width), img->depth, img->nChannels);
         cvTranspose(img, rotated);
@@ -258,15 +262,10 @@ static void save_images(capture_t *c, void *raw)
         g_stream_count = (g_stream_count + 1) % 20;
         sprintf(fname, "%s/img%03d.jpg", g_streaming, g_stream_count);
 
-        cvCircle(rotated, cvPoint(x,y), radius, black, 2, 8, 0);
-        cvLine(rotated, cvPoint(x, y - radius), cvPoint(x, y - radius - radius*2), black, 2,8,0);
-        cvLine(rotated, cvPoint(x, y + radius), cvPoint(x, y + radius + radius*2), black, 2,8,0);
-        cvLine(rotated, cvPoint(x - radius, y), cvPoint(x - radius - radius * 2, y), black, 2,8,0);
-        cvLine(rotated, cvPoint(x + radius, y), cvPoint(x + radius + radius * 2, y), black, 2,8,0);
-
         {
             char hackbuf[1024];
             sprintf(hackbuf, "mv %s/img%03d.jpg %s/snapshot.jpg", g_streaming, g_stream_count, g_streaming);
+            draw_reticles(rotated);
             cvSaveImage(fname, rotated, NULL);
             system(hackbuf);
             cvReleaseImage(&rotated);
@@ -1092,6 +1091,7 @@ void process_one_image(IplImage *img, char *filename)
             print_real_average(buf + strlen(buf), sizeof(buf) - strlen(buf));
             socket_send_message(buf, strlen(buf));
             fails_in_a_row = 0;
+            g_good = 1;
         }
         else
         {
@@ -1100,6 +1100,7 @@ void process_one_image(IplImage *img, char *filename)
                 char *buf = "BAD 0 0 0 0";
                 socket_send_message(buf, strlen(buf));
             }
+            g_good = 0;
             printf("Did not find a goal\n------\n");
         }
     }
