@@ -763,8 +763,8 @@ int Hough(IplImage *img, struct timeval *t, int display){
 				badframes2+=3;
 			}
 			else{
-				RealAverage=.5*RealAverage+.5*RealClosest;
-				RealAverage2=.5*RealAverage2+.5*ClosestPart2;
+				RealAverage=.2*RealAverage+.8*RealClosest;
+				RealAverage2=.2*RealAverage2+.8*ClosestPart2;
 				badframes2=0;
 			}
 		}
