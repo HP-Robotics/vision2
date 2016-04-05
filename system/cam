@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#  Cope with headless operation
+killall vision-armv7l
+sleep 1
+
+mkdir /dev/shm/pics
+
+/home/pi/vision2/vision-armv7l --fps 10 --listen 5201 --stream /dev/shm/pics --watch /var/www/html/shots
+#/home/pi/vision2/vision-armv7l --fps 10 --listen 5201 --watch /var/www/html/shots
+
+exit 0

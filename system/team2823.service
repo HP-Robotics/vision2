@@ -1,0 +1,11 @@
+[Unit]
+Description=Team 2823 Startup
+After=network.target
+
+[Service]
+ExecStart=/home/pi/vision2/system/team2823
+KillMode=mixed
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

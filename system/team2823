@@ -1,0 +1,45 @@
+#!/bin/bash
+
+TZ=`cat /etc/timezone`
+export TZ
+
+d=`date +"%m.%d.%H.%M.%S"`
+logfile="/root/logs/$d.log"
+piclogfile="/root/logs/$d.pics.log"
+visionlogfile="/root/logs/$d.vision.log"
+
+echo team2823 starting >$logfile
+date >> $logfile
+
+ifconfig eth0 >>$logfile
+ifconfig eth0 | grep 'inet addr.*10.28'
+if [ $? -eq 0 ] ; then
+    #mount /shared
+    echo not mounting for now...
+else
+    while [ 1 ] ; do
+    echo Did not find expected address.  Will try again in 10 seconds >>$logfile
+    sleep 10
+    ifconfig eth0 | grep 'inet addr.*10.28'
+    if [ $? -eq 0 ] ; then
+        break;
+    fi
+    #if [ $? -ne 0 ] ; then
+    #    nohup avahi-autoipd eth0 >/tmp/autoipd.out 2>&1 &
+    #fi
+    done
+fi
+
+#/root/mjpg-streamer/mjpg-streamer-experimental/pics.sh >$piclogfile 2>&1
+
+
+# TODO - #        start our camera program
+#  Cope with headless operation
+killall vision-armv7l
+sleep 1
+
+mkdir /dev/shm/pics
+/home/pi/vision2/vision-armv7l --fps 10 --listen 5201 --stream /dev/shm/pics --watch /var/www/html/shots >$visionlogfile 2>&1
+#/home/pi/vision2/vision-armv7l --listen 5201 --stream /dev/shm/pics --watch /var/www/html/shots --simple >$visionlogfile 2>&1
+
+exit 1
