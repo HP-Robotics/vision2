@@ -35,6 +35,8 @@ int badframes2=0;
 Vec3f RealAverage=Vec3f(0,0,0);
 Vec3f RealAverage2=Vec3f(0,0,0);
 
+vector <Point2f> prettyGoodGoal;
+
 Vec6f GivePos(vector<Point2f> imagePoints)
 {
     vector<Point3f> objectPoints;
@@ -743,6 +745,7 @@ int Hough(IplImage *img, struct timeval *t, int display){
 				if(norm(RealAverage-ScrewThoseOtherCoordinates)<norm(RealAverage-RealClosest) || RealClosest[2]<1){
 					RealClosest=ScrewThoseOtherCoordinates;
                                         ClosestPart2=Vec3f(GOAL[0], GOAL[1], GOAL[2]);
+                                        prettyGoodGoal = imagePoints;
 				}
                                 goal_type = "HIT 6";
                                 hits++;
@@ -812,6 +815,13 @@ void print_real_average(char *buf, int buflen)
         theta = -acos (visible_width /20.0) *180.0/PI;
     }
     snprintf(buf, buflen, "%f %f %f %f", theta, RealAverage[1], shot_distance_avg, RealAverage2[1]);
+}
+
+double give_me_y(void)
+{
+    Point2f topleft = prettyGoodGoal[0];
+    Point2f topright = prettyGoodGoal[3]; 
+    return (topleft.x + topright.x) / 2; 
 }
 
 double image_goal_distance(void)

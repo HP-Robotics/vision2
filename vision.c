@@ -204,7 +204,8 @@ static void draw_reticles(IplImage *img)
     if (g_good)
     {
         double d = image_goal_distance();
-        draw_reticle(img, (int)((d*-0.3157894737)+244), (int)((d*-4.712719298) + 669.5), 20);
+        draw_reticle(img, (int)((d*-0.3157894737)+244),  give_me_y(), 20);
+//(int)((d*-4.712719298) + 669.5), 20);
 	//x=-0.3157894737*d+244
 	//y=-4.712719298*d+669.5
         
@@ -319,7 +320,7 @@ static int compute_size(long size, int *width, int *height)
 }
 
 
-static void start_watching(void)
+static void start_watching(int howlong)
 {
     char tbuf[1024];
     char *p;
@@ -340,7 +341,7 @@ static void start_watching(void)
     mkdir(tbuf, 0755);
 
     g_watch_count = 0;
-    g_watch_until = time(NULL) + 3;
+    g_watch_until = time(NULL) + howlong;
 }
 
 static void stop_watching(void)
@@ -374,7 +375,9 @@ static void report_info(int s, char *buf, int len, void *from, int from_len)
     if (len > 4 && memcmp(buf, "RPM ", 4) == 0)
         g_rpm = atoi(buf + 4);
     if (g_watching && len >= 5 && memcmp(buf, "WATCH", 5) == 0)
-        start_watching();
+        start_watching(3);
+    if (g_watching && len >= 5 && memcmp(buf, "WATCH6", 5) == 0)
+        start_watching(6);
     if (len >= 5 && memcmp(buf, "CLEAR", 5) == 0)
         clear_average();
 }
