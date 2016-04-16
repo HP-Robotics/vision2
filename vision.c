@@ -199,6 +199,13 @@ static void draw_reticle(IplImage *img, int x, int y, int radius)
     cvLine(img, cvPoint(x + radius, y), cvPoint(x + radius + radius * 2, y), black, 2,8,0);
 }
 
+static void draw_static_line(IplImage *img)
+{
+    CvScalar black = cvScalar(0,0,0,0);
+
+    cvLine(img, cvPoint(229, 447), cvPoint(210,163), black, 2, 8, 0);
+}
+
 static void draw_reticles(IplImage *img)
 {
     if (g_good)
@@ -212,9 +219,9 @@ static void draw_reticles(IplImage *img)
     }
     else
     {
-        draw_reticle(img, 229, 447, 10);
+        draw_reticle(img, 229, 447, 10); // 110 inches
         draw_reticle(img, 221, 324, 10);
-        draw_reticle(img, 210, 163, 10);
+        draw_reticle(img, 210, 163, 10); // 48 inches
     }
 }
 
@@ -275,6 +282,96 @@ static void save_images(capture_t *c, void *raw)
     cvReleaseImage(&img);
 }
 
+/* Processing for stream to driver, saving shots */
+static void save_just_reticle_raw(int width, int height, void *raw)
+{
+    IplImage *img = NULL;
+    void *data = NULL;
+    IplImage *rotated;
+    char fname[1024];
+    CvScalar white = cvScalar(255,255,255,255);
+    CvPoint point = cvPoint(20,560);
+    CvFont font;
+    char buf[1024];
+    img = cvCreateImageHeader(cvSize(width, height),  IPL_DEPTH_8U, g_colors);
+    data = cvAlloc(width * height * g_colors);
+    memset(data, 0, width * height * g_colors);
+    capture_yuv_to_rgb(raw, data, width, height, g_colors, NULL);
+    cvSetData(img, data, width * g_colors);
+
+    rotated = cvCreateImage(cvSize(img->height, img->width), img->depth, img->nChannels);
+    cvTranspose(img, rotated);
+    cvFlip(rotated, NULL, 1);
+    g_stream_count = (g_stream_count + 1);
+
+    draw_reticles(rotated);
+    draw_static_line(rotated);
+
+//cvPutText(CvArr* img, const char* text, CvPoint org, const CvFont* font, CvScalar color);
+    print_real_average(buf, sizeof(buf));
+    if (g_good)
+    {
+        float angle, left, distance, right;
+        sscanf(buf, "%f %f %f %f", &angle, &left, &distance, &right);
+        sprintf(buf, "VISION: DISTANCE %g ", distance);
+        sprintf(buf + strlen(buf), "ANGLE %f ", angle);
+        sprintf(buf + strlen(buf), "MOVE %f", left - 5 - ((left - right) /2.0));
+    }
+    else
+        sprintf(buf, "NO VISION");
+
+    cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 0.4, 0.4, 0.0, 1, CV_AA);
+    cvPutText(rotated, buf, point, &font, white);
+
+    sprintf(fname, "%s/img%03d.jpg", g_streaming, g_stream_count);
+    cvSaveImage(fname, rotated, NULL);
+    cvReleaseImage(&rotated);
+    cvReleaseImage(&img);
+}
+
+static int compute_size(long size, int *width, int *height)
+{
+    if (size == 640 * 480 * 2)
+    {
+        *width = 640;
+        *height = 480;
+        return 0;
+    }
+
+    return -1;
+}
+
+
+void save_just_reticle(char *filename)
+{
+    void *raw_data = NULL;
+    FILE *fp;
+    struct stat s;
+    int width;
+    int height;
+
+    if (stat(filename, &s))
+    {
+        return;
+    }
+
+    fp = fopen(filename, "rb");
+    if (!fp)
+        return;
+
+    if (compute_size(s.st_size, &width, &height)){
+        fprintf(stderr, "Error: size of %ld not understood.\n", s.st_size);
+        return;
+    }
+
+    raw_data = cvAlloc(s.st_size);
+    fread(raw_data, 1, s.st_size, fp);
+    fclose(fp);
+    save_just_reticle_raw(width, height, raw_data);
+    cvFree(&raw_data);
+}
+
+
 static IplImage *vision_retrieve(capture_t *c)
 {
     void *i;
@@ -306,19 +403,6 @@ static IplImage *vision_retrieve(capture_t *c)
 
     return img;
 }
-
-static int compute_size(long size, int *width, int *height)
-{
-    if (size == 640 * 480 * 2)
-    {
-        *width = 640;
-        *height = 480;
-        return 0;
-    }
-
-    return -1;
-}
-
 
 static void start_watching(int howlong)
 {
@@ -417,6 +501,7 @@ IplImage * vision_from_raw_file(char *filename)
 
     img = cvCreateImageHeader(cvSize(width, height),  IPL_DEPTH_8U, g_colors);
     cvSetData(img, data, width * g_colors);
+
     cvFree(&raw_data);
 
     return img;
@@ -1093,6 +1178,7 @@ void process_one_image(IplImage *img, char *filename)
             strcpy(buf, "GOOD ");
             print_real_average(buf + strlen(buf), sizeof(buf) - strlen(buf));
             socket_send_message(buf, strlen(buf));
+            printf("Sending rio: %s\n", buf);
             fails_in_a_row = 0;
             g_good = 1;
         }
@@ -1170,7 +1256,9 @@ int vision_main(int argc, char *argv[])
             printf("%d: %s\n", i, argv[i]);
             g_count++;
             if (strlen(argv[i]) >= 3 && strcmp(argv[i] + strlen(argv[i]) - 3, "raw") == 0)
+            {
                 img = vision_from_raw_file(argv[i]);
+            }
             else
             {
                 in_img = vision_from_normal_file(argv[i]);
@@ -1183,11 +1271,19 @@ int vision_main(int argc, char *argv[])
                 return -1;
             }
             process_one_image(img, argv[i]);
+            if (strlen(argv[i]) >= 3 && strcmp(argv[i] + strlen(argv[i]) - 3, "raw") == 0 && g_streaming)
+                save_just_reticle(argv[i]);
             cvReleaseImage(&img);
             print_real_average(buf, sizeof(buf));
             printf("Reported: %s\n", buf);
-            cvWaitKey(1);
-            usleep(100 * 1000);
+            if (g_display)
+            {
+                if (i == argc - 1)
+                    cvWaitKey(0);
+                else
+                    cvWaitKey(1);
+                usleep(100 * 1000);
+            }
         }
 
         print_stats(g_count, &g_total_retrieve_time, &g_total_blur_time, &g_total_contour_time, &g_total_canny_time, &g_total_hough_time);
