@@ -620,6 +620,10 @@ static int parse_arguments(int argc, char *argv[])
         {"listen", required_argument, 0, 'l' },
         {"streaming", required_argument, 0, '3' },
         {"watch", required_argument, 0, '4' },
+        {"y", required_argument, 0, 'y' },
+        {"u", required_argument, 0, 'u' },
+        {"v", required_argument, 0, 'v' },
+        {"fancy", required_argument, 0, '5' },
         {"simple",    no_argument,       0,  '0' },
         {0,         0,                 0,  0 }
     };
@@ -695,6 +699,35 @@ static int parse_arguments(int argc, char *argv[])
                 break;
 			case '2':
 				g_hough=1;
+
+            case 'y':
+                if (sscanf(optarg, "%d-%d", &g_color_filter.min_y, &g_color_filter.max_y) != 2)
+                {
+                    fprintf(stderr, "Specify min-max range\n");
+                    return -1;
+                }
+                break;
+
+            case 'u':
+                if (sscanf(optarg, "%d-%d", &g_color_filter.min_u, &g_color_filter.max_u) != 2)
+                {
+                    fprintf(stderr, "Specify min-max range\n");
+                    return -1;
+                }
+                break;
+
+            case 'v':
+                if (sscanf(optarg, "%d-%d", &g_color_filter.min_v, &g_color_filter.max_v) != 2)
+                {
+                    fprintf(stderr, "Specify min-max range\n");
+                    return -1;
+                }
+                break;
+
+            case '5':
+                g_color_filter.apply_fancy_logic = atoi(optarg);
+                break;
+
             case -1:
                 return 0;
 
