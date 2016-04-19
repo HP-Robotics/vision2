@@ -772,6 +772,8 @@ int Hough(IplImage *img, struct timeval *t, int display){
 			}
 		}
 		double outangle=acos((RealAverage[1]-RealAverage2[1])/20.0)*180.0/3.1415926535;
+                if (RealAverage[1]-RealAverage2[1] > 20)
+                    outangle = 0.0;
 		printf("angle: %f\n",outangle);
 		printf("close: (%f, %f, %f), (%f, %f, %f)\n",RealClosest[0],RealClosest[1],RealClosest[2],ClosestPart2[0],ClosestPart2[1],ClosestPart2[2]);
 		printf("avrge: (%f, %f, %f), (%f, %f, %f)\n",RealAverage[0],RealAverage[1],RealAverage[2],RealAverage2[0],RealAverage2[1],RealAverage2[2]);
@@ -808,6 +810,8 @@ void print_real_average(char *buf, int buflen)
     double theta;
     double goal_edge_diff=onetruecosine*RealAverage[2]+onetruesine*RealAverage[0]-onetruecosine*RealAverage2[2]-onetruesine*RealAverage2[0];
     double shot_distance_avg=(goal_edge_diff+2*(onetruecosine*RealAverage2[2]+onetruesine*RealAverage2[0]))/2;
+    if (visible_width > 20.0)
+        visible_width = 20.0;
     if(goal_edge_diff>0){
     	theta = acos (visible_width / 20.0) * 180.0 / PI;
     }
