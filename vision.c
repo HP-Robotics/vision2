@@ -214,11 +214,7 @@ static void draw_reticles(IplImage *img)
     if (g_good)
     {
         double d = image_goal_distance();
-        draw_reticle(img, (int)((d*-0.3157894737)+244),  give_me_y(), 20, 0);
-//(int)((d*-4.712719298) + 669.5), 20);
-	//x=-0.3157894737*d+244
-	//y=-4.712719298*d+669.5
-        
+        draw_reticle(img, (int)((d*0.3058)+195.94),  give_me_y(), 20, 0);
     }
     else
     {
