@@ -91,7 +91,7 @@ static void stop_watching(void);
 
 long g_count = 0;
 
-int g_rpm = 3700;
+int g_rpm = 3800;
 int g_good = 0;
 
 capture_t g_cam;
@@ -188,11 +188,14 @@ static void queue_init(void)
 }
 
 
-static void draw_reticle(IplImage *img, int x, int y, int radius)
+static void draw_reticle(IplImage *img, int x, int y, int radius, int hash)
 {
     CvScalar black = cvScalar(0,0,0,0);
+    CvScalar white = cvScalar(255,255,255,255);
 
     cvCircle(img, cvPoint(x,y), radius, black, 2, 8, 0);
+    if (hash)
+        cvCircle(img, cvPoint(x,y), radius-1, white, -1, 8, 0);
     cvLine(img, cvPoint(x, y - radius), cvPoint(x, y - radius - radius*2), black, 2,8,0);
     cvLine(img, cvPoint(x, y + radius), cvPoint(x, y + radius + radius*2), black, 2,8,0);
     cvLine(img, cvPoint(x - radius, y), cvPoint(x - radius - radius * 2, y), black, 2,8,0);
@@ -211,7 +214,7 @@ static void draw_reticles(IplImage *img)
     if (g_good)
     {
         double d = image_goal_distance();
-        draw_reticle(img, (int)((d*-0.3157894737)+244),  give_me_y(), 20);
+        draw_reticle(img, (int)((d*-0.3157894737)+244),  give_me_y(), 20, 0);
 //(int)((d*-4.712719298) + 669.5), 20);
 	//x=-0.3157894737*d+244
 	//y=-4.712719298*d+669.5
@@ -219,9 +222,10 @@ static void draw_reticles(IplImage *img)
     }
     else
     {
-        draw_reticle(img, 229, 447, 10); // 110 inches
-        draw_reticle(img, 221, 324, 10);
-        draw_reticle(img, 210, 163, 10); // 48 inches
+        draw_static_line(img);
+        draw_reticle(img, 229, 447, 10, g_rpm > 3650 && g_rpm < 3750 ); // 110 inches
+        draw_reticle(img, 221, 324, 10, g_rpm < 3600);
+        draw_reticle(img, 210, 163, 10, g_rpm >= 3750 && g_rpm < 4000); // 48 inches
     }
 }
 
