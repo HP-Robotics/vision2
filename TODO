@@ -1,3 +1,7 @@
+0.  
+    Parameterize 'magic' filter and add command lines
+    for them too.
+
 1.  Measure performance
     a) Just capturing, at each color depth
     b) Of each step (e.g. filter, contours, etc)
