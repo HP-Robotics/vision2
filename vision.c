@@ -458,10 +458,10 @@ static void report_info(int s, char *buf, int len, void *from, int from_len)
     printf("Got '%s'\n", buf);
     if (len > 4 && memcmp(buf, "RPM ", 4) == 0)
         g_rpm = atoi(buf + 4);
-    if (g_watching && len >= 5 && memcmp(buf, "WATCH", 5) == 0)
-        start_watching(3);
-    if (g_watching && len >= 5 && memcmp(buf, "WATCH6", 5) == 0)
-        start_watching(6);
+    if (g_watching && len >= 6 && memcmp(buf, "WATCH6", 6) == 0)
+        start_watching(8);
+    else if (g_watching && len >= 5 && memcmp(buf, "WATCH", 5) == 0)
+        start_watching(4);
     if (len >= 5 && memcmp(buf, "CLEAR", 5) == 0)
         clear_average();
 }
