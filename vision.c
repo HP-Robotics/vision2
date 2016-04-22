@@ -133,12 +133,19 @@ camera_default_t g_camera_defaults[] =
 };
 
 
+
+typedef struct
+{
+    IplImage *img;
+    void     *raw;
+} vision_image_t;
+
 #define MAX_QUEUE_SIZE      10
-IplImage *g_processing_queue[MAX_QUEUE_SIZE];
+vision_image_t *g_processing_queue[MAX_QUEUE_SIZE];
 int g_queue_index = -1;
 pthread_mutex_t g_queue_mutex;
 
-static void push_image(IplImage *img)
+static void push_image(vision_image_t *vimg)
 {
     if (pthread_mutex_lock(&g_queue_mutex))
         perror("pthread_mutex_lock");
@@ -148,16 +155,16 @@ static void push_image(IplImage *img)
     else
     {
         g_queue_index++;
-        g_processing_queue[g_queue_index] = img;
+        g_processing_queue[g_queue_index] = vimg;
     }
    
     if (pthread_mutex_unlock(&g_queue_mutex))
         perror("pthread_mutex_unlock");
 }
 
-static IplImage *pop_image(int *left)
+static vision_image_t *pop_image(int *left)
 {
-    IplImage *img = NULL;
+    vision_image_t *vimg = NULL;
 
     if (pthread_mutex_lock(&g_queue_mutex))
         perror("pthread_mutex_lock");
@@ -167,7 +174,7 @@ static IplImage *pop_image(int *left)
 
     if (g_queue_index >= 0)
     {
-        img = g_processing_queue[0];
+        vimg = g_processing_queue[0];
         if (g_queue_index > 0)
         {
             memmove(&g_processing_queue[0], &g_processing_queue[1],
@@ -179,9 +186,16 @@ static IplImage *pop_image(int *left)
     if (pthread_mutex_unlock(&g_queue_mutex))
         perror("pthread_mutex_unlock");
 
-    return img;
+    return vimg;
 }
 
+static void vision_release_image(vision_image_t *vimg)
+{
+    cvReleaseImage(&vimg->img);
+    if (vimg->raw)
+        cvFree(&vimg->raw);
+    cvFree(&vimg);
+}
 static void queue_init(void)
 {
     pthread_mutex_init(&g_queue_mutex, NULL);
@@ -226,60 +240,50 @@ static void draw_reticles(IplImage *img)
 }
 
 /* Processing for stream to driver, saving shots */
-static void save_images(capture_t *c, void *raw)
+static void save_images(vision_image_t *vimg)
 {
-    IplImage *img = NULL;
-    void *data = NULL;
-    img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
-    data = cvAlloc(c->width * c->height * g_colors);
-    memset(data, 0, c->width * c->height * g_colors);
-    capture_yuv_to_rgb(raw, data, c->width, c->height, g_colors, NULL);
-    cvSetData(img, data, c->width * g_colors);
+    char fname[1024];
+    char cmdbuf[1024];
+    IplImage *rotated;
 
-    if (g_streaming)
+    if (! g_streaming)
+        return;
+
+
+    rotated = cvCreateImage(cvSize(vimg->img->height, vimg->img->width), vimg->img->depth, vimg->img->nChannels);
+    cvTranspose(vimg->img, rotated);
+    cvFlip(rotated, NULL, 1);
+
+    g_stream_count = (g_stream_count + 1) % 20;
+    sprintf(fname, "%s/img%03d.jpg", g_streaming, g_stream_count);
+
+    sprintf(cmdbuf, "mv %s/img%03d.jpg %s/snapshot.jpg", g_streaming, g_stream_count, g_streaming);
+    draw_reticles(rotated);
+    cvSaveImage(fname, rotated, NULL);
+    system(cmdbuf);
+
+    if (g_watching && time(NULL) < g_watch_until)
     {
-        IplImage *rotated;
-        char fname[1024];
+        FILE *fp;
 
-        rotated = cvCreateImage(cvSize(img->height, img->width), img->depth, img->nChannels);
-        cvTranspose(img, rotated);
-        cvFlip(rotated, NULL, 1);
+        g_watch_count++;
 
-        if (g_watching && time(NULL) < g_watch_until)
+        sprintf(fname, "%s/img%05d.png", g_watch_this_dir, g_watch_count);
+        cvSaveImage(fname, rotated, NULL);
+
+        sprintf(fname, "%s/raw/img%05d.yuv.raw", g_watch_this_dir, g_watch_count);
+        fp = fopen(fname, "w");
+        if (fp)
         {
-            FILE *fp;
-
-            g_watch_count++;
-
-            sprintf(fname, "%s/img%05d.png", g_watch_this_dir, g_watch_count);
-            cvSaveImage(fname, rotated, NULL);
-
-            sprintf(fname, "%s/raw/img%05d.yuv.raw", g_watch_this_dir, g_watch_count);
-            fp = fopen(fname, "w");
-            if (fp)
-            {
-                fwrite(raw, 1, c->width * c->height * 2, fp);
-                fclose(fp);
-            }
-
+            fwrite(vimg->raw, 1, vimg->img->width * vimg->img->height * 2, fp);
+            fclose(fp);
         }
-        else if (g_watching && g_watch_count > 0)
-            stop_watching();
 
-
-        g_stream_count = (g_stream_count + 1) % 20;
-        sprintf(fname, "%s/img%03d.jpg", g_streaming, g_stream_count);
-
-        {
-            char hackbuf[1024];
-            sprintf(hackbuf, "mv %s/img%03d.jpg %s/snapshot.jpg", g_streaming, g_stream_count, g_streaming);
-            draw_reticles(rotated);
-            cvSaveImage(fname, rotated, NULL);
-            system(hackbuf);
-            cvReleaseImage(&rotated);
-        }
     }
-    cvReleaseImage(&img);
+    else if (g_watching && g_watch_count > 0)
+        stop_watching();
+
+    cvReleaseImage(&rotated);
 }
 
 /* Processing for stream to driver, saving shots */
@@ -372,36 +376,48 @@ void save_just_reticle(char *filename)
 }
 
 
-static IplImage *vision_retrieve(capture_t *c)
+static IplImage *filter_image(int width, int height, void *raw, filter_t *filter)
 {
-    void *i;
+    IplImage *img;
     void *data;
-    IplImage *img = NULL;
+    img = cvCreateImageHeader(cvSize(width, height),  IPL_DEPTH_8U, g_colors);
+    data = cvAlloc(width * height * g_colors);
+    memset(data, 0, width * height * g_colors);
+    if (capture_yuv_to_rgb(raw, data, width, height, g_colors, filter))
+    {
+        fprintf(stderr, "Unexpected conversion error\n");
+        cvFree(&data);
+        cvFree(&img);
+        return NULL;
+    }
+    cvSetData(img, data, width * g_colors);
+    return img;
+}
+
+static vision_image_t *vision_retrieve(capture_t *c)
+{
+    vision_image_t *vimg = cvAlloc(sizeof(vision_image_t));;
     filter_t *filter = g_filter ? &g_color_filter : NULL;
 
-    i = capture_retrieve(c, g_colors, NULL, 1);
-    if (i)
+    vimg->raw = capture_retrieve(c, g_colors, NULL, 1);
+    if (vimg->raw)
     {
-        save_images(c, i);
-
-        img = cvCreateImageHeader(cvSize(c->width, c->height),  IPL_DEPTH_8U, g_colors);
-        data = cvAlloc(c->width * c->height * g_colors);
-        memset(data, 0, c->width * c->height * g_colors);
-        if (capture_yuv_to_rgb(i, data, c->width, c->height, g_colors, filter))
+        vimg->img = filter_image(c->width, c->height, vimg->raw, filter);
+        save_images(vimg);
+        if (!vimg->img)
         {
-            fprintf(stderr, "Unexpected conversion error\n");
-            cvFree(&i);
-            cvFree(&data);
+            cvFree(&vimg->raw);
+            cvFree(&vimg);
             return NULL;
         }
-        cvFree(&i);
-
-        cvSetData(img, data, c->width * g_colors);
     }
-    else
+    else {
         fprintf(stderr, "Unexpected retrieve error\n");
+        cvFree(&vimg);
+        vimg = NULL;
+    }
 
-    return img;
+    return vimg;
 }
 
 static void start_watching(int howlong)
@@ -466,11 +482,9 @@ static void report_info(int s, char *buf, int len, void *from, int from_len)
         clear_average();
 }
 
-IplImage * vision_from_raw_file(char *filename)
+vision_image_t * vision_from_raw_file(char *filename)
 {
-    void *raw_data = NULL;
-    void *data = NULL;
-    IplImage *img = NULL;
+    vision_image_t *vimg = NULL;
     FILE *fp;
     struct stat s;
     int width;
@@ -490,21 +504,13 @@ IplImage * vision_from_raw_file(char *filename)
         return NULL;
     }
 
-    raw_data = cvAlloc(s.st_size);
-    fread(raw_data, 1, s.st_size, fp);
+    vimg = cvAlloc(sizeof(vision_image_t));
+    vimg->raw = cvAlloc(s.st_size);
+    fread(vimg->raw, 1, s.st_size, fp);
     fclose(fp);
 
-    data = cvAlloc(width * height * g_colors);
-    memset(data, 0, width * height * g_colors);
-    if (capture_yuv_to_rgb(raw_data, data, width, height, g_colors, g_filter ? &g_color_filter : NULL))
-        return NULL;
-
-    img = cvCreateImageHeader(cvSize(width, height),  IPL_DEPTH_8U, g_colors);
-    cvSetData(img, data, width * g_colors);
-
-    cvFree(&raw_data);
-
-    return img;
+    vimg->img = filter_image(width, height, vimg->raw, g_filter ? &g_color_filter : NULL);
+    return vimg;
 }
 
 void vision_print_yuv(char *filename, int x, int y)
@@ -1169,9 +1175,9 @@ void show_yuv(int event, int x, int y, int flags, void* userdata)
     vision_print_yuv((char *) userdata, x, y);
 }
 
-void process_one_image(IplImage *img, char *filename)
+int process_one_image_half(IplImage *img, char *filename)
 {
-    static int fails_in_a_row = 0;
+    int rc = 0;
 
     if (g_display) {
         cvShowImage("Camera", img);
@@ -1203,29 +1209,7 @@ void process_one_image(IplImage *img, char *filename)
         find_contours(img, &g_total_contour_time, g_display, g_contour_level);
 
     if (g_hough)
-    {
-        if (Hough(img, &g_total_hough_time, g_display))
-        {
-            char buf[1024];
-            printf("Found a goal\n------\n");
-            strcpy(buf, "GOOD ");
-            print_real_average(buf + strlen(buf), sizeof(buf) - strlen(buf));
-            socket_send_message(buf, strlen(buf));
-            printf("Sending rio: %s\n", buf);
-            fails_in_a_row = 0;
-            g_good = 1;
-        }
-        else
-        {
-            if (fails_in_a_row++ > 2)
-            {
-                char *buf = "BAD 0 0 0 0";
-                socket_send_message(buf, strlen(buf));
-            }
-            g_good = 0;
-            printf("Did not find a goal\n------\n");
-        }
-    }
+        rc = Hough(img, &g_total_hough_time, g_display);
 
     if (g_fast)
     {
@@ -1236,22 +1220,64 @@ void process_one_image(IplImage *img, char *filename)
             cvSaveImage(vision_file_template(g_snap, "fast", "png"), img, 0);
     }
 
+    return rc;
+}
+
+void process_one_image(vision_image_t *vimg, char *filename)
+{
+    static int fails_in_a_row = 0;
+    int rc;
+    rc = process_one_image_half(vimg->img, filename);
+    if (!rc && vimg->raw && g_filter && ! g_color_filter.apply_fancy_logic)
+    {
+        CvSize sz = cvGetSize(vimg->img);
+        g_color_filter.apply_fancy_logic = 1;
+        cvReleaseImage(&vimg->img);
+        vimg->img = filter_image(sz.width, sz.height, vimg->raw, &g_color_filter);
+        rc = process_one_image_half(vimg->img, filename);
+        printf("Trying fancy logic: %d\n", rc);
+        g_color_filter.apply_fancy_logic = 0;
+    }
+
+    if (rc)
+    {
+        char buf[1024];
+        printf("Found a goal\n------\n");
+        strcpy(buf, "GOOD ");
+        print_real_average(buf + strlen(buf), sizeof(buf) - strlen(buf));
+        socket_send_message(buf, strlen(buf));
+        printf("Sending rio: %s\n", buf);
+        fails_in_a_row = 0;
+        g_good = 1;
+    }
+    else
+    {
+        if (fails_in_a_row++ > 2)
+        {
+            char *buf = "BAD 0 0 0 0";
+            socket_send_message(buf, strlen(buf));
+        }
+        g_good = 0;
+        printf("Did not find a goal\n------\n");
+    }
+
 }
 
 static void process_vision_queue(void *info)
 {
     while(g_running)
     {
-        IplImage *img;
+        vision_image_t *vimg;
         int left;
-        img = pop_image(&left);
-        if (img)
+        vimg = pop_image(&left);
+        if (vimg)
         {
             if (left < 3)
-                process_one_image(img, NULL);
+                process_one_image(vimg, NULL);
             else
                 fprintf(stderr, "ERROR: Dropping a frame we cannot get to (%d in queue)!\n", left);
-            cvReleaseImage(&img);
+
+            vision_release_image(vimg);
         }
         sched_yield();
     }
@@ -1284,29 +1310,32 @@ int vision_main(int argc, char *argv[])
         for (i = optind; i < argc; i++)
         {
             IplImage *in_img;
-            IplImage *img;
+            vision_image_t *vimg = NULL;
             char buf[128];
             printf("%d: %s\n", i, argv[i]);
             g_count++;
             if (strlen(argv[i]) >= 3 && strcmp(argv[i] + strlen(argv[i]) - 3, "raw") == 0)
             {
-                img = vision_from_raw_file(argv[i]);
+                vimg = vision_from_raw_file(argv[i]);
             }
             else
             {
+                vimg = cvAlloc(sizeof(*vimg));
                 in_img = vision_from_normal_file(argv[i]);
-                img = cvCreateImage(cvGetSize(in_img), IPL_DEPTH_8U, 1);
-                cvCvtColor(in_img, img, CV_RGB2GRAY);
+                vimg->img = cvCreateImage(cvGetSize(in_img), IPL_DEPTH_8U, 1);
+                cvCvtColor(in_img, vimg->img, CV_RGB2GRAY);
+                vimg->raw = NULL;
+                cvReleaseImage(&in_img);
             }
-            if (!img)
+            if (!vimg)
             {
                 fprintf(stderr, "Error:  cannot read %s\n", argv[i]);
                 return -1;
             }
-            process_one_image(img, argv[i]);
+            process_one_image(vimg, argv[i]);
             if (strlen(argv[i]) >= 3 && strcmp(argv[i] + strlen(argv[i]) - 3, "raw") == 0 && g_streaming)
                 save_just_reticle(argv[i]);
-            cvReleaseImage(&img);
+            vision_release_image(vimg);
             print_real_average(buf, sizeof(buf));
             printf("Reported: %s\n", buf);
             if (g_display)
@@ -1368,15 +1397,15 @@ int vision_main(int argc, char *argv[])
         gettimeofday(&start, NULL);
         if (capture_grab(&g_cam) > 0)
         {
-            IplImage *img;
+            vision_image_t *vimg;
 
-            img = vision_retrieve(&g_cam);
+            vimg = vision_retrieve(&g_cam);
 
             gettimeofday(&end, NULL);
             timersub(&end, &start, &diff);
             timeradd(&g_total_retrieve_time, &diff, &g_total_retrieve_time);
 
-            push_image(img);
+            push_image(vimg);
 
             g_count++;
 
