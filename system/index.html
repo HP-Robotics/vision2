@@ -1,0 +1,33 @@
+<html>
+<body>
+
+<canvas id="viewport" width="480" height="640"></canvas>
+
+<script type="text/javascript">
+var canvas = document.getElementById('viewport'),
+context = canvas.getContext('2d');
+
+var count = 0;
+function refresh()
+{                                    
+    var downloadingImage = new Image();
+    downloadingImage.onload = function(){
+        context.drawImage(this, 0, 0, 480, 640, 0, 0, 480, 640);
+        setTimeout(function () { 
+            refresh();
+        }, 100);
+    }
+    downloadingImage.onerror = function() {
+        console.log("boom");
+        setTimeout(function () { 
+            refresh();
+        }, 1000);
+    }
+    downloadingImage.src = "pics/snapshot.jpg?dummy="+ count;
+    count++;
+}
+
+refresh();
+</script>
+</body>
+</html>
