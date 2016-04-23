@@ -313,6 +313,9 @@ static void draw_reticles(IplImage *img)
         draw_reticle(img, 229, 447, 10, g_rpm > 3650 && g_rpm < 3750 ); // 110 inches
         draw_reticle(img, 221, 324, 10, g_rpm <= 3650);
         draw_reticle(img, 210, 163, 10, g_rpm >= 3750 && g_rpm < 4000); // 48 inches
+        // Draw an indicator if we're in long shot
+        if (g_rpm >= 4000)
+            draw_reticle(img, (int)((150*0.3058) + 195.94), 550, 10, 1); // outerworks
     }
 }
 
