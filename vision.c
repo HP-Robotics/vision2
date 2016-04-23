@@ -213,15 +213,15 @@ crosshair_image_t *g_crosshair_processing_queue[MAX_QUEUE_SIZE];
 int g_crosshair_queue_index = -1;
 pthread_mutex_t g_crosshair_queue_mutex;
 
-static void push_crosshair_image(vision_image_t *vimg)
+static void push_crosshair_image(int width, int height, void *raw)
 {
     crosshair_image_t *cross;
 
     cross = cvAlloc(sizeof(*cross));
-    cross->width = vimg->img->width;
-    cross->height = vimg->img->height;
+    cross->width = width;
+    cross->height = height;
     cross->raw = cvAlloc(cross->height * cross->width * 2);
-    memcpy(cross->raw, vimg->raw, cross->height * cross->width * 2);
+    memcpy(cross->raw, raw, cross->height * cross->width * 2);
   
     if (pthread_mutex_lock(&g_crosshair_queue_mutex))
         perror("pthread_mutex_lock");
@@ -505,6 +505,7 @@ static vision_image_t *vision_retrieve(capture_t *c)
     vimg->raw = capture_retrieve(c, g_colors, NULL, 1);
     if (vimg->raw)
     {
+        push_crosshair_image(c->width, c->height, vimg->raw);
         vimg->img = filter_image(c->width, c->height, vimg->raw, filter);
         if (!vimg->img)
         {
@@ -512,7 +513,6 @@ static vision_image_t *vision_retrieve(capture_t *c)
             cvFree(&vimg);
             return NULL;
         }
-        push_crosshair_image(vimg);
     }
     else {
         fprintf(stderr, "Unexpected retrieve error\n");
