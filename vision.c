@@ -202,6 +202,83 @@ static void queue_init(void)
 }
 
 
+typedef struct
+{
+    void     *raw;
+    int      width;
+    int      height;
+} crosshair_image_t;
+
+crosshair_image_t *g_crosshair_processing_queue[MAX_QUEUE_SIZE];
+int g_crosshair_queue_index = -1;
+pthread_mutex_t g_crosshair_queue_mutex;
+
+static void push_crosshair_image(vision_image_t *vimg)
+{
+    crosshair_image_t *cross;
+
+    cross = cvAlloc(sizeof(*cross));
+    cross->width = vimg->img->width;
+    cross->height = vimg->img->height;
+    cross->raw = cvAlloc(cross->height * cross->width * 2);
+    memcpy(cross->raw, vimg->raw, cross->height * cross->width * 2);
+  
+    if (pthread_mutex_lock(&g_crosshair_queue_mutex))
+        perror("pthread_mutex_lock");
+
+    if (g_crosshair_queue_index >= MAX_QUEUE_SIZE)
+        fprintf(stderr, "Error: image queue full.\n");
+    else
+    {
+        g_crosshair_queue_index++;
+        g_crosshair_processing_queue[g_crosshair_queue_index] = cross;
+    }
+   
+    if (pthread_mutex_unlock(&g_crosshair_queue_mutex))
+        perror("pthread_mutex_unlock");
+}
+
+static crosshair_image_t *pop_crosshair_image(int *left)
+{
+    crosshair_image_t *cross = NULL;
+
+    if (pthread_mutex_lock(&g_crosshair_queue_mutex))
+        perror("pthread_mutex_lock");
+   
+    if (left)
+        *left = g_crosshair_queue_index;
+
+    if (g_crosshair_queue_index >= 0)
+    {
+        cross = g_crosshair_processing_queue[0];
+        if (g_crosshair_queue_index > 0)
+        {
+            memmove(&g_crosshair_processing_queue[0], &g_crosshair_processing_queue[1],
+                g_crosshair_queue_index * sizeof(g_crosshair_processing_queue[0]));
+        }
+        g_crosshair_queue_index--;
+    }
+
+    if (pthread_mutex_unlock(&g_crosshair_queue_mutex))
+        perror("pthread_mutex_unlock");
+
+    return cross;
+}
+
+
+
+static void crosshair_release_image(crosshair_image_t *cross)
+{
+    if (cross->raw)
+        cvFree(&cross->raw);
+    cvFree(&cross);
+}
+static void crosshair_queue_init(void)
+{
+    pthread_mutex_init(&g_crosshair_queue_mutex, NULL);
+}
+
+
 static void draw_reticle(IplImage *img, int x, int y, int radius, int hash)
 {
     CvScalar orange = cvScalar(12,124,252,0);
@@ -258,7 +335,7 @@ static IplImage *color_image(int width, int height, void *raw)
 }
 
 /* Processing for stream to driver, saving shots */
-static void save_images(vision_image_t *vimg)
+static void save_images(crosshair_image_t *cross)
 {
     char fname[1024];
     char cmdbuf[1024];
@@ -269,7 +346,7 @@ static void save_images(vision_image_t *vimg)
         return;
 
 
-    img = color_image(vimg->img->width, vimg->img->height, vimg->raw);
+    img = color_image(cross->width, cross->height, cross->raw);
     if (! img)
         return;
 
@@ -299,7 +376,7 @@ static void save_images(vision_image_t *vimg)
         fp = fopen(fname, "w");
         if (fp)
         {
-            fwrite(vimg->raw, 1, vimg->img->width * vimg->img->height * 2, fp);
+            fwrite(cross->raw, 1, cross->width * cross->height * 2, fp);
             fclose(fp);
         }
 
@@ -426,13 +503,13 @@ static vision_image_t *vision_retrieve(capture_t *c)
     if (vimg->raw)
     {
         vimg->img = filter_image(c->width, c->height, vimg->raw, filter);
-        save_images(vimg);
         if (!vimg->img)
         {
             cvFree(&vimg->raw);
             cvFree(&vimg);
             return NULL;
         }
+        push_crosshair_image(vimg);
     }
     else {
         fprintf(stderr, "Unexpected retrieve error\n");
@@ -1306,13 +1383,34 @@ static void process_vision_queue(void *info)
     }
 }
 
+static void process_crosshair_queue(void *info)
+{
+    while(g_running)
+    {
+        crosshair_image_t *cross;
+        int left;
+        cross = pop_crosshair_image(&left);
+        if (cross)
+        {
+            if (left < 3)
+               save_images(cross);
+            else
+                fprintf(stderr, "ERROR: Dropping a frame we cannot get to (%d in queue)!\n", left);
+
+            crosshair_release_image(cross);
+        }
+        sched_yield();
+    }
+}
+
 int vision_main(int argc, char *argv[])
 {
     struct timeval start, end, diff;
     struct timeval main_start;
-    pthread_attr_t attr;
+    pthread_attr_t attr, cross_attr;
     pthread_attr_init(&attr);
-    pthread_t thread;
+    pthread_attr_init(&cross_attr);
+    pthread_t thread, cross_thread;
     int rc;
 
     int discard = 0;
@@ -1388,8 +1486,16 @@ int vision_main(int argc, char *argv[])
     setup_camera_controls();
 
     queue_init();
+    crosshair_queue_init();
 
     rc = pthread_create(&thread, &attr, (void * (*)(void *))process_vision_queue, NULL);
+    if (rc)
+    {
+        perror("pthread create");
+        g_running = 0;
+    }
+
+    rc = pthread_create(&cross_thread, &cross_attr, (void * (*)(void *))process_crosshair_queue, NULL);
     if (rc)
     {
         perror("pthread create");
