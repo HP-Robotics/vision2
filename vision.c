@@ -204,23 +204,23 @@ static void queue_init(void)
 
 static void draw_reticle(IplImage *img, int x, int y, int radius, int hash)
 {
-    CvScalar black = cvScalar(0,0,0,0);
-    CvScalar white = cvScalar(255,255,255,255);
+    CvScalar orange = cvScalar(12,124,252,0);
+    CvScalar red = cvScalar(0,0,255,0);
 
-    cvCircle(img, cvPoint(x,y), radius, black, 2, 8, 0);
+    cvCircle(img, cvPoint(x,y), radius, orange, 2, 8, 0);
     if (hash)
-        cvCircle(img, cvPoint(x,y), radius-1, white, -1, 8, 0);
-    cvLine(img, cvPoint(x, y - radius), cvPoint(x, y - radius - radius*2), black, 2,8,0);
-    cvLine(img, cvPoint(x, y + radius), cvPoint(x, y + radius + radius*2), black, 2,8,0);
-    cvLine(img, cvPoint(x - radius, y), cvPoint(x - radius - radius * 2, y), black, 2,8,0);
-    cvLine(img, cvPoint(x + radius, y), cvPoint(x + radius + radius * 2, y), black, 2,8,0);
+        cvCircle(img, cvPoint(x,y), radius-1, red, -1, 8, 0);
+    cvLine(img, cvPoint(x, y - radius), cvPoint(x, y - radius - radius*2), orange, 2,8,0);
+    cvLine(img, cvPoint(x, y + radius), cvPoint(x, y + radius + radius*2), orange, 2,8,0);
+    cvLine(img, cvPoint(x - radius, y), cvPoint(x - radius - radius * 2, y), orange, 2,8,0);
+    cvLine(img, cvPoint(x + radius, y), cvPoint(x + radius + radius * 2, y), orange, 2,8,0);
 }
 
 static void draw_static_line(IplImage *img)
 {
-    CvScalar black = cvScalar(0,0,0,0);
+    CvScalar orange = cvScalar(12,124,252,0);
 
-    cvLine(img, cvPoint(229, 447), cvPoint(210,163), black, 2, 8, 0);
+    cvLine(img, cvPoint(229, 447), cvPoint(210,163), orange, 2, 8, 0);
 }
 
 static void draw_reticles(IplImage *img)
@@ -239,19 +239,43 @@ static void draw_reticles(IplImage *img)
     }
 }
 
+static IplImage *color_image(int width, int height, void *raw)
+{
+    IplImage *img;
+    void *data;
+    img = cvCreateImageHeader(cvSize(width, height),  IPL_DEPTH_8U, 3);
+    data = cvAlloc(width * height * 3);
+    memset(data, 0, width * height * 3);
+    if (capture_yuv_to_rgb(raw, data, width, height, 3, NULL))
+    {
+        fprintf(stderr, "Unexpected conversion error\n");
+        cvFree(&data);
+        cvFree(&img);
+        return NULL;
+    }
+    cvSetData(img, data, width * 3);
+    return img;
+}
+
 /* Processing for stream to driver, saving shots */
 static void save_images(vision_image_t *vimg)
 {
     char fname[1024];
     char cmdbuf[1024];
+    IplImage *img;
     IplImage *rotated;
 
     if (! g_streaming)
         return;
 
 
-    rotated = cvCreateImage(cvSize(vimg->img->height, vimg->img->width), vimg->img->depth, vimg->img->nChannels);
-    cvTranspose(vimg->img, rotated);
+    img = color_image(vimg->img->width, vimg->img->height, vimg->raw);
+    if (! img)
+        return;
+
+    rotated = cvCreateImage(cvSize(img->height, img->width), img->depth, img->nChannels);
+    cvTranspose(img, rotated);
+    cvReleaseImage(&img);
     cvFlip(rotated, NULL, 1);
 
     g_stream_count = (g_stream_count + 1) % 20;
@@ -374,7 +398,6 @@ void save_just_reticle(char *filename)
     save_just_reticle_raw(width, height, raw_data);
     cvFree(&raw_data);
 }
-
 
 static IplImage *filter_image(int width, int height, void *raw, filter_t *filter)
 {
