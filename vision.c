@@ -1395,10 +1395,10 @@ static void process_crosshair_queue(void *info)
         cross = pop_crosshair_image(&left);
         if (cross)
         {
-            if (left < 3)
+            if (left < 1)
                save_images(cross);
             else
-                fprintf(stderr, "ERROR: Dropping a frame we cannot get to (%d in queue)!\n", left);
+                fprintf(stderr, "ERROR: Dropping a crosshair frame we cannot get to (%d in queue)!\n", left);
 
             crosshair_release_image(cross);
         }
