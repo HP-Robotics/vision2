@@ -15,7 +15,7 @@ function refresh()
         context.drawImage(this, 0, 0, 480, 640, 0, 0, 480, 640);
         setTimeout(function () { 
             refresh();
-        }, 100);
+        }, 50);
     }
     downloadingImage.onerror = function() {
         console.log("boom");
