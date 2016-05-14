@@ -1357,7 +1357,7 @@ void process_one_image(vision_image_t *vimg, char *filename)
     {
         if (fails_in_a_row++ > 2)
         {
-            char *buf = "BAD 0 0 0 0";
+            char *buf = "BAD 0 0 0 0 0";
             socket_send_message(buf, strlen(buf));
         }
         g_good = 0;
