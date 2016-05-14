@@ -822,12 +822,13 @@ void print_real_average(char *buf, int buflen)
     }
     Vec2f turnCenter=Vec2i(0,-14);
     Vec2f shootPoint=Vec2i(4,0);
-    Vec2f toGoal=((RealAverage[1]+RealAverage2[1]),shot_distance_avg);
+    Vec2f toGoal=Vec2f((RealAverage[1]+RealAverage2[1])/2.0,shot_distance_avg);
     float a=norm(toGoal-turnCenter);
     float shootAngle=90;
     shootAngle=shootAngle+180.0*atan2((shootPoint-turnCenter)[1],(shootPoint-turnCenter)[0])/PI;
     float turnAngle=180.0*asin(norm(shootPoint-turnCenter)*sin(shootAngle)/a)/PI;
-    turnAngle=turnAngle-180.0*atan2((toGoal-turnCenter)[1],(toGoal-turnCenter)[0])/PI;
+    printf("All the things: %f %f %f %f %f\n",toGoal[0],toGoal[1],shootAngle,turnAngle,180.0*atan2((toGoal-turnCenter)[1],(toGoal-turnCenter)[0])/PI);
+    turnAngle=turnAngle+90-180.0*atan2((toGoal-turnCenter)[1],(toGoal-turnCenter)[0])/PI;
     
     snprintf(buf, buflen, "%f %f %f %f %f", theta, RealAverage[1], shot_distance_avg, RealAverage2[1], turnAngle);
 }
