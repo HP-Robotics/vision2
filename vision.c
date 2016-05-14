@@ -47,8 +47,7 @@
     int max_v;
     int apply_fancy_logic;
 */
-filter_t g_color_filter = { 30, 150, 113, 161, 0, 116, 0};
-
+filter_t g_color_filter = { 30, 150, 113, 161, 0, 120, 0};
 //filter_t g_color_filter = { 0, 255, 0, 255, 0, 100 };
 //{ 128, 255, 0, 255, 64, 255 };
 
@@ -1331,6 +1330,7 @@ void process_one_image(vision_image_t *vimg, char *filename)
     static int fails_in_a_row = 0;
     int rc;
     rc = process_one_image_half(vimg->img, filename);
+#if defined(NOPE)
     if (!rc && vimg->raw && g_filter && ! g_color_filter.apply_fancy_logic)
     {
         CvSize sz = cvGetSize(vimg->img);
@@ -1341,7 +1341,7 @@ void process_one_image(vision_image_t *vimg, char *filename)
         printf("Trying fancy logic: %d\n", rc);
         g_color_filter.apply_fancy_logic = 0;
     }
-
+#endif
     if (rc)
     {
         char buf[1024];

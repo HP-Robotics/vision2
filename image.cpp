@@ -649,9 +649,10 @@ int Hough(IplImage *img, struct timeval *t, int display){
     HoughLinesP(copy, lines, 1, CV_PI/180, 15, 10, 15 );
     int hits = 0;
 
-    if (lines.size() > 60)
+    if (lines.size() > 60) {
     	printf("Too many lines\n");
         goto exit;
+    }
 
     
     s=vision_snapshot_number();
@@ -826,7 +827,7 @@ void print_real_average(char *buf, int buflen)
     float shootAngle=90;
     shootAngle=shootAngle+180.0*atan2((shootPoint-turnCenter)[1],(shootPoint-turnCenter)[0])/PI;
     float turnAngle=180.0*asin(norm(shootPoint-turnCenter)*sin(shootAngle)/a)/PI;
-    turnAngle=turnAngle+90-180.0*atan2((toGoal-turnCenter)[1],(toGoal-turnCenter)[0])/PI;
+    turnAngle=turnAngle-180.0*atan2((toGoal-turnCenter)[1],(toGoal-turnCenter)[0])/PI;
     
     snprintf(buf, buflen, "%f %f %f %f %f", theta, RealAverage[1], shot_distance_avg, RealAverage2[1], turnAngle);
 }
